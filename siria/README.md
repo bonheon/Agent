@@ -116,6 +116,27 @@ uvicorn app.main:app --reload
     유도하는 일반 안내문 반환
 - raw exception 을 LLM 에 그대로 노출하지 않는다.
 
+## 가이아2.0 연동 설계 (예정)
+
+가이아2.0 은 agent 선택(라우팅)을 담당하는 사내 플랫폼이다. 씨리아를 노출하는
+방식은 두 가지가 있고, **둘 다 같은 core 위에서 어댑터로 공존 가능**하다.
+
+| | 완성품 (agent 경유) | 스킬카드 직접 등록 |
+|---|---|---|
+| 실행 경로 | 가이아 → 씨리아 agent(ReAct 루프) → core | 가이아 LLM → tool 호출 → core |
+| tool 선택 주체 | 씨리아 LLM (시스템 프롬프트 통제 가능) | 가이아 LLM (docstring 이 유일한 통제 수단) |
+| 씨리아의 역할 | 답변까지 생성 | data 조회만 |
+| 유리한 업무 | 다단계 분석 (예: trouble lot — 조회 순서 노하우가 프롬프트에 있음) | 단발 조회 (빠르고 LLM 비용 절감) |
+
+- 현재 회사 구조: 완성품 방식 (가이아는 agent 선택만, tool 선택은 씨리아 내부).
+- 스킬카드 단독 등록(씨리아 agent 미경유) 가능 여부는 확인 중.
+- 스킬카드는 인터페이스(이름/설명/파라미터/호출 주소)만 등록하는 것이고,
+  core 로직은 카드에 포함되는 게 아니라 카드가 가리키는 서버에 배포된다.
+- 프로토콜이 MCP 면 `adapters/mcp_server.py`, REST 면 어댑터 파일 하나 추가로
+  대응한다. 어느 쪽이든 core/tools 는 수정 없음.
+- 개별 tool 대신 씨리아 agent 전체를 tool 하나(`ask_siria(question)`)로 노출하는
+  절충안도 가능 — tool 선택 로직을 우리가 통제하고 싶을 때 사용.
+
 ## Observability
 
 `SIRIA_PHOENIX_ENABLED=true` + `SIRIA_PHOENIX_ENDPOINT=<collector 주소>` 설정 시
