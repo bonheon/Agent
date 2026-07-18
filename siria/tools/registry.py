@@ -1,0 +1,61 @@
+"""Tool Registry: 이름 → tool 매핑.
+
+각 tools/*_tools.py 모듈은 @tool 로 만든 tool 을 register() 로 등록하고,
+agent factory 는 get_tools([...]) 로 원하는 조합만 꺼내 agent 를 구성한다.
+
+새 tool 파일을 만들면 _TOOL_MODULES 에 모듈 경로 한 줄만 추가하면 된다.
+"""
+import importlib
+
+from langchain_core.tools import BaseTool
+
+_REGISTRY: dict[str, BaseTool] = {}
+_loaded = False
+
+# 등록 대상 tool 모듈 목록. 새 tool 파일 추가 시 여기에 한 줄 추가.
+_TOOL_MODULES = [
+    "tools.lot_tools",
+    "tools.eq_tools",
+    "tools.wip_tools",
+    "tools.hold_tools",
+    "tools.part_tools",
+    "tools.knowledge_tools",
+]
+
+
+def register(tool: BaseTool) -> BaseTool:
+    """tool 을 registry 에 등록한다. 각 *_tools.py 모듈 하단에서 호출."""
+    if tool.name in _REGISTRY:
+        raise ValueError(f"tool 이름 중복: '{tool.name}' (이미 등록됨)")
+    _REGISTRY[tool.name] = tool
+    return tool
+
+
+def _load_all() -> None:
+    """모든 tool 모듈을 import 해서 register() 가 실행되게 한다."""
+    global _loaded
+    if _loaded:
+        return
+    for module in _TOOL_MODULES:
+        importlib.import_module(module)
+    _loaded = True
+
+
+def get_tools(names: list[str]) -> list[BaseTool]:
+    """이름 목록으로 tool 조합을 꺼낸다. 없는 이름이면 사용 가능 목록과 함께 에러."""
+    _load_all()
+    missing = [n for n in names if n not in _REGISTRY]
+    if missing:
+        raise KeyError(
+            f"등록되지 않은 tool: {missing}. 사용 가능한 tool: {sorted(_REGISTRY)}"
+        )
+    return [_REGISTRY[n] for n in names]
+
+
+def list_tools() -> dict[str, str]:
+    """등록된 전체 tool 의 {이름: 설명 첫 줄} 목록. 디버깅/문서용."""
+    _load_all()
+    return {
+        name: (t.description or "").strip().splitlines()[0]
+        for name, t in sorted(_REGISTRY.items())
+    }

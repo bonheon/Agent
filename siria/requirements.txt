@@ -1,0 +1,18 @@
+# --- Agent core ---
+langchain-core
+langchain-openai
+langgraph
+pyyaml
+
+# --- API ---
+fastapi
+uvicorn
+
+# --- RAG ---
+# TODO: 내부망 버전에 맞춰 고정
+pymilvus
+
+# --- Observability (Phoenix/Arize) ---
+# SIRIA_PHOENIX_ENABLED=true 일 때만 필요
+arize-phoenix-otel
+openinference-instrumentation-langchain
