@@ -16,3 +16,7 @@ pymilvus
 # SIRIA_PHOENIX_ENABLED=true 일 때만 필요
 arize-phoenix-otel
 openinference-instrumentation-langchain
+
+# --- MCP 예제 (adapters/mcp_server.py, adapters/mcp_client_example.py) ---
+mcp[cli]
+langchain-mcp-adapters  # adapters/mcp_langgraph_agent_example.py 용
