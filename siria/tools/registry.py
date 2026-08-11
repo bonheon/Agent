@@ -3,16 +3,20 @@
 각 tools/*_tools.py 모듈은 @tool 로 만든 tool 을 register() 로 등록하고,
 agent factory 는 get_tools([...]) 로 원하는 조합만 꺼내 agent 를 구성한다.
 
-새 tool 파일을 만들면 _TOOL_MODULES 에 모듈 경로 한 줄만 추가하면 된다.
+tool 이 등록되는 경로는 두 가지다:
+1. 공용 tool — tools/*_tools.py. 새 파일을 만들면 _TOOL_MODULES 에 한 줄 추가.
+2. skill 전용 tool — skills/<name>/tools.py. **자동으로 발견되므로 등록 불필요.**
+   skill 폴더 하나가 배포 단위이므로, 폴더를 넣고 빼는 것만으로 tool 이 붙고 떨어져야 한다.
 """
 import importlib
+from pathlib import Path
 
 from langchain_core.tools import BaseTool
 
 _REGISTRY: dict[str, BaseTool] = {}
 _loaded = False
 
-# 등록 대상 tool 모듈 목록. 새 tool 파일 추가 시 여기에 한 줄 추가.
+# 여러 skill/agent 가 공유하는 tool. 새 tool 파일 추가 시 여기에 한 줄 추가.
 _TOOL_MODULES = [
     "tools.lot_tools",
     "tools.eq_tools",
@@ -21,6 +25,8 @@ _TOOL_MODULES = [
     "tools.part_tools",
     "tools.knowledge_tools",
 ]
+
+_SKILLS_DIR = Path(__file__).resolve().parent.parent / "skills"
 
 
 def register(tool: BaseTool) -> BaseTool:
@@ -31,12 +37,19 @@ def register(tool: BaseTool) -> BaseTool:
     return tool
 
 
+def _skill_tool_modules() -> list[str]:
+    """skills/<name>/tools.py 를 전부 찾아 모듈 경로로 반환한다."""
+    return sorted(
+        f"skills.{p.parent.name}.tools" for p in _SKILLS_DIR.glob("*/tools.py")
+    )
+
+
 def _load_all() -> None:
     """모든 tool 모듈을 import 해서 register() 가 실행되게 한다."""
     global _loaded
     if _loaded:
         return
-    for module in _TOOL_MODULES:
+    for module in _TOOL_MODULES + _skill_tool_modules():
         importlib.import_module(module)
     _loaded = True
 

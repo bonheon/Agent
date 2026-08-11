@@ -20,6 +20,7 @@ import yaml
 from langgraph.prebuilt import create_react_agent
 
 from config import get_llm, settings
+from skills.loader import SKILLS_DIR, load_skill
 from tools.registry import get_tools
 
 CONFIG_DIR = Path(__file__).parent / "configs"
@@ -38,6 +39,17 @@ class AgentConfig:
     @classmethod
     def from_yaml(cls, path: Path) -> "AgentConfig":
         data = yaml.safe_load(path.read_text(encoding="utf-8"))
+
+        # skill: <name> 을 쓰면 tools/system_prompt 를 skills/<name>/SKILL.md 에서
+        # 가져온다. 절차 문서가 단일 원본이 되도록 yaml 에 복붙하지 않는다.
+        # yaml 에 같은 키를 직접 쓰면 그쪽이 우선한다 (부분 override 용).
+        skill_name = data.pop("skill", None)
+        if skill_name:
+            skill = load_skill(skill_name)
+            data.setdefault("name", skill.name)
+            data.setdefault("tools", skill.tools)
+            data.setdefault("system_prompt", skill.system_prompt)
+
         required = {"name", "system_prompt", "tools"}
         missing = required - data.keys()
         if missing:
@@ -69,12 +81,31 @@ class SiriaAgent:
         )
 
 
+def agent_config_paths() -> dict[str, Path]:
+    """agent 이름 → 정의 파일 경로.
+
+    두 곳에서 모은다:
+    - agents/configs/<name>.yaml — 여러 skill/tool 을 조합하는 범용 agent
+    - skills/<name>/agent.yaml   — skill 이 자기 실행 설정을 함께 들고 다니는 경우.
+      skill 폴더를 지우면 agent 정의도 같이 사라져야 dangling config 가 안 생긴다.
+    """
+    paths = {p.stem: p for p in CONFIG_DIR.glob("*.yaml")}
+    for path in sorted(SKILLS_DIR.glob("*/agent.yaml")):
+        name = path.parent.name
+        if name in paths:
+            raise ValueError(
+                f"agent 이름 중복: '{name}' — {paths[name]} 와 {path} 가 충돌합니다."
+            )
+        paths[name] = path
+    return paths
+
+
 def load_agent_config(name: str) -> AgentConfig:
-    path = CONFIG_DIR / f"{name}.yaml"
-    if not path.exists():
-        available = sorted(p.stem for p in CONFIG_DIR.glob("*.yaml"))
+    paths = agent_config_paths()
+    path = paths.get(name)
+    if path is None:
         raise FileNotFoundError(
-            f"agent 정의 없음: {path}. 사용 가능한 agent: {available}"
+            f"agent 정의 없음: '{name}'. 사용 가능한 agent: {sorted(paths)}"
         )
     return AgentConfig.from_yaml(path)
 

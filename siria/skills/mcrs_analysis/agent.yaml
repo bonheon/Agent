@@ -1,0 +1,6 @@
+# MCRS 분석 agent — tool 목록과 절차는 skills/mcrs_analysis/SKILL.md 가 원본이다.
+# 여기서 중복 정의하지 않는다. 절차를 바꾸려면 SKILL.md 를 고친다.
+skill: mcrs_analysis
+
+# 10단계 중 6~8 단계를 병렬 호출해도 왕복이 많아 여유 있게 잡는다.
+recursion_limit: 25
