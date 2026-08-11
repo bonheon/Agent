@@ -39,7 +39,7 @@ siria/
 │       ├── SKILL.md       #    절차 10단계 + 판단 기준 (외부에 넘길 본문)
 │       ├── agent.yaml     #    이 skill 을 단독 실행할 때의 agent 설정
 │       ├── tools.py       #    tool 8개 — services 를 부르는 얇은 wrapper
-│       └── services/      #    순수 로직 (mcrs/insp/review/pm)
+│       └── services/      #    순수 로직 (context/mcrs/insp/review/pm)
 ├── agents/
 │   ├── factory.py         # yaml → create_react_agent
 │   └── configs/           # 여러 skill 을 조합하는 범용 agent 설정
@@ -191,12 +191,29 @@ import 하지 않는 플랫폼에 skill 을 등록할 때 이 두 엔드포인�
 
 ### tool 인자 설계 원칙 — 앵커 인자만 받는다
 
-`mcrs_analysis` 의 tool 8개는 전부 `(lot_id, step_id)` 만 받는다. 장비 ID·슬롯 번호·
-device 는 `services/mcrs.py` 의 `resolve_issue()` 가 이슈 레코드에서 되찾는다.
+`mcrs_analysis` 의 tool 9개는 전부 `(lot_id, step_id)` 만 받는다. 장비 ID·슬롯 번호·
+device 는 `services/context.py` 의 `resolve_context()` 가 **공정 이력에서** 되찾는다.
 
 LLM 에게 `eq_id` 를 넘기라고 하면 **아직 조회하지 않은 값을 지어내서** 넘긴다.
 사용자가 실제로 고르는 값(여기서는 Lot 과 공정)만 인자로 받고 나머지는 서버가
 유도하면, 잘못된 인자로 엉뚱한 데이터를 조회하는 경로 자체가 사라진다.
+
+### 조회 계층과 분석 계층을 나눈다
+
+같은 tool 세트가 "INSP 결과 보여줘" 같은 단발 질문과 "MCRS 원인 분석해줘" 같은
+다단계 요청을 모두 받는다. 그러려면 두 가지를 지켜야 한다.
+
+**1. 특수 상황을 전제조건으로 만들지 않는다.** 처음에는 모든 tool 이 MCRS 이슈
+레코드에서 장비를 찾았고, 그래서 MCRS 가 없는 Lot 은 INSP 조회조차 막혔다. Lot 이
+그 공정을 지나갔으면 장비는 공정 이력에 **항상** 있으므로, 컨텍스트 해결의 근거를
+공정 이력으로 옮기고 MCRS 는 보강 정보로 얹었다. 없는 정보 때문에 실패하지 말고,
+없는 대로 답하고 없다고 표시한다. `ToolError` 는 입력이 잘못됐을 때만 쓴다.
+
+**2. 절차서에 경우의 수를 나열하지 않는다.** 단발 질문의 형태는 무한하므로 SKILL.md
+에 열거할 수 없다. 대신 탈출 조항 한 줄("특정 데이터 하나만 요청하면 해당 tool 만
+호출하고 끝낸다. 아래 절차는 원인 분석 요청일 때만 적용한다")을 맨 앞에 두고, tool
+선택 자체는 docstring 에 맡긴다. 절차서는 **여러 tool 을 엮을 때의 순서와 판단 기준**
+만 담당한다. 역할을 섞으면 프롬프트가 무한히 길어진다.
 
 ## 에러 처리 규칙
 
