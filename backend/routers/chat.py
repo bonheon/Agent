@@ -3,16 +3,17 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 import json
 import os
-from openai import AsyncOpenAI
-from tools.db_tools import TOOL_DEFINITIONS, execute_tool
 from typing import AsyncGenerator
 
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+from langchain_core.runnables import RunnableConfig
+from langchain_openai import ChatOpenAI
+from langgraph.graph import StateGraph, MessagesState
+from langgraph.prebuilt import ToolNode, tools_condition
+
+from tools.langgraph_tools import TOOLS
+
 router = APIRouter(prefix="/api", tags=["chat"])
-
-
-def _client() -> AsyncOpenAI:
-    return AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-
 
 SYSTEM_PROMPT = """당신은 반도체 제조 공정 전문 AI 어시스턴트입니다.
 사용자의 질문에 맞는 도구를 사용해 데이터를 조회하고, 명확하고 전문적인 답변을 제공합니다.
@@ -97,87 +98,60 @@ class ChatRequest(BaseModel):
     messages: list[Message]
 
 
-async def _stream_agent(messages: list[dict]) -> AsyncGenerator[str, None]:
+def _build_graph():
+    """LangGraph StateGraph: agent(LLM) <-> tools 루프.
+    신규 tool은 tools/langgraph_tools.py의 TOOLS에 추가하면 이 그래프에 자동으로 반영됩니다.
     """
-    OpenAI streaming + function calling 루프.
-    text chunk를 생성되는 즉시 yield.
-    tool call이 있으면 실행 후 다음 스트림을 이어서 진행.
-    """
-    client = _client()
+    llm = ChatOpenAI(model="gpt-4o", api_key=os.getenv("OPENAI_API_KEY"), streaming=True)
+    llm_with_tools = llm.bind_tools(TOOLS)
 
-    while True:
-        stream = await client.chat.completions.create(
-            model="gpt-4o",
-            messages=messages,
-            tools=TOOL_DEFINITIONS,
-            tool_choice="auto",
-            stream=True,
-        )
+    def agent_node(state: MessagesState, config: RunnableConfig):
+        return {"messages": [llm_with_tools.invoke(state["messages"], config)]}
 
-        accumulated_text = ""
-        tool_calls_buf: list[dict] = []
+    graph = StateGraph(MessagesState)
+    graph.add_node("agent", agent_node)
+    graph.add_node("tools", ToolNode(TOOLS))
+    graph.set_entry_point("agent")
+    graph.add_conditional_edges("agent", tools_condition)
+    graph.add_edge("tools", "agent")
+    return graph.compile()
 
-        async for chunk in stream:
-            if not chunk.choices:
-                continue
-            delta = chunk.choices[0].delta
 
-            # 텍스트 — 생성되는 즉시 yield
-            if delta.content:
-                accumulated_text += delta.content
-                yield delta.content
+_graph = None
 
-            # tool_calls 누적
-            if delta.tool_calls:
-                for tc in delta.tool_calls:
-                    idx = tc.index
-                    while len(tool_calls_buf) <= idx:
-                        tool_calls_buf.append(
-                            {"id": "", "type": "function", "function": {"name": "", "arguments": ""}}
-                        )
-                    if tc.id:
-                        tool_calls_buf[idx]["id"] = tc.id
-                    if tc.function:
-                        if tc.function.name:
-                            tool_calls_buf[idx]["function"]["name"] += tc.function.name
-                        if tc.function.arguments:
-                            tool_calls_buf[idx]["function"]["arguments"] += tc.function.arguments
 
-        # tool call 없음 → 완료
-        if not tool_calls_buf:
-            return
+def _get_graph():
+    global _graph
+    if _graph is None:
+        _graph = _build_graph()
+    return _graph
 
-        # assistant 메시지 (tool_calls 포함) 히스토리에 추가
-        assistant_msg: dict = {
-            "role": "assistant",
-            "tool_calls": [
-                {
-                    "id": tc["id"],
-                    "type": "function",
-                    "function": {"name": tc["function"]["name"], "arguments": tc["function"]["arguments"]},
-                }
-                for tc in tool_calls_buf
-            ],
-        }
-        if accumulated_text:
-            assistant_msg["content"] = accumulated_text
-        messages.append(assistant_msg)
 
-        # 각 tool 실행 결과 추가
-        for tc in tool_calls_buf:
-            result = execute_tool(tc["function"]["name"], tc["function"]["arguments"])
-            messages.append({"role": "tool", "tool_call_id": tc["id"], "content": result})
+def _to_lc_messages(messages: list[Message]) -> list:
+    lc_messages: list = [SystemMessage(content=SYSTEM_PROMPT)]
+    for m in messages:
+        if m.role == "user":
+            lc_messages.append(HumanMessage(content=m.content))
+        elif m.role == "assistant":
+            lc_messages.append(AIMessage(content=m.content))
+    return lc_messages
 
-        # 다음 루프에서 tool 결과를 바탕으로 최종 응답 스트리밍
+
+async def _stream_agent(lc_messages: list) -> AsyncGenerator[str, None]:
+    """그래프 실행 중 agent 노드가 생성하는 텍스트 토큰을 즉시 yield."""
+    async for event in _get_graph().astream_events({"messages": lc_messages}, version="v2"):
+        if event["event"] == "on_chat_model_stream":
+            chunk = event["data"]["chunk"]
+            if chunk.content:
+                yield chunk.content
 
 
 @router.post("/chat")
 async def chat(req: ChatRequest):
-    messages = [{"role": "system", "content": SYSTEM_PROMPT}]
-    messages += [m.model_dump() for m in req.messages]
+    lc_messages = _to_lc_messages(req.messages)
 
     async def generate():
-        async for chunk in _stream_agent(messages):
+        async for chunk in _stream_agent(lc_messages):
             yield f"data: {json.dumps({'delta': chunk})}\n\n"
         yield "data: [DONE]\n\n"
 
