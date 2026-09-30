@@ -1,14 +1,15 @@
 import React, { useState } from "react";
+import { alpha } from "../lib/color";
 import { DefectMapPayload, DefectPoint } from "../types";
 
 const CX = 150, CY = 150, R = 133;
 
 const DEFECT_COLORS: Record<string, string> = {
-  PARTICLE: "#f59e0b",
-  SCRATCH:  "#ef4444",
-  BRIDGE:   "#a855f7",
-  PIT:      "#3b82f6",
-  RESIDUE:  "#22c55e",
+  PARTICLE: "var(--c-amber)",
+  SCRATCH:  "var(--c-red)",
+  BRIDGE:   "var(--c-purple)",
+  PIT:      "var(--c-blue)",
+  RESIDUE:  "var(--c-green)",
   CLUSTER:  "#ec4899",
 };
 
@@ -55,11 +56,11 @@ export default function DefectMap({ data }: Props) {
 
   return (
     <div className="wafer-map-container">
-      <h3 style={{ margin: "0 0 8px", fontSize: 14, color: "#94a3b8" }}>
-        Defect Map — Lot: <strong style={{ color: "#e2e8f0" }}>{data.lot_id}</strong>
-        {"  "}| Wafer <strong style={{ color: "#e2e8f0" }}>{data.wafer_no}</strong>
+      <h3 style={{ margin: "0 0 8px", fontSize: 14, color: "var(--sub)" }}>
+        Defect Map — Lot: <strong style={{ color: "var(--ink)" }}>{data.lot_id}</strong>
+        {"  "}| Wafer <strong style={{ color: "var(--ink)" }}>{data.wafer_no}</strong>
         {"  "}
-        <span style={{ color: "#ef4444" }}>Total: {data.defects.length}</span>
+        <span style={{ color: "var(--c-red)" }}>Total: {data.defects.length}</span>
       </h3>
 
       {/* Filter chips */}
@@ -77,8 +78,8 @@ export default function DefectMap({ data }: Props) {
                   padding: "3px 11px",
                   borderRadius: 12,
                   border: `1px solid ${color}`,
-                  background: active ? color + "28" : "transparent",
-                  color: active ? color : "#64748b",
+                  background: active ? alpha(color, "28") : "transparent",
+                  color: active ? color : "var(--faint)",
                   cursor: "pointer",
                   fontSize: 11,
                   fontWeight: active ? 600 : 400,
@@ -99,8 +100,8 @@ export default function DefectMap({ data }: Props) {
         >
           <defs>
             <radialGradient id="dm-bg" cx="38%" cy="32%">
-              <stop offset="0%" stopColor="#252545" />
-              <stop offset="100%" stopColor="#0c0c1e" />
+              <stop offset="0%" stopColor="var(--sunken)" />
+              <stop offset="100%" stopColor="var(--sunken)" />
             </radialGradient>
             <clipPath id="dm-clip">
               <circle cx={CX} cy={CY} r={R - 1} />
@@ -108,7 +109,7 @@ export default function DefectMap({ data }: Props) {
           </defs>
 
           {/* Wafer base */}
-          <circle cx={CX} cy={CY} r={R} fill="url(#dm-bg)" stroke="#475569" strokeWidth={2} />
+          <circle cx={CX} cy={CY} r={R} fill="url(#dm-bg)" stroke="var(--faint)" strokeWidth={2} />
 
           {/* Die grid (faint) */}
           <g clipPath="url(#dm-clip)" opacity={0.15}>
@@ -146,8 +147,8 @@ export default function DefectMap({ data }: Props) {
           })}
 
           {/* Wafer outline + notch */}
-          <circle cx={CX} cy={CY} r={R} fill="none" stroke="#94a3b8" strokeWidth={1.5} />
-          <path d={`M ${CX-8} ${CY+R+1} Q ${CX} ${CY+R-5} ${CX+8} ${CY+R+1}`} fill="#0a0a18" stroke="#94a3b8" strokeWidth={1} />
+          <circle cx={CX} cy={CY} r={R} fill="none" stroke="var(--sub)" strokeWidth={1.5} />
+          <path d={`M ${CX-8} ${CY+R+1} Q ${CX} ${CY+R-5} ${CX+8} ${CY+R+1}`} fill="var(--sunken)" stroke="var(--sub)" strokeWidth={1} />
         </svg>
 
         {/* Review panel */}
@@ -157,24 +158,24 @@ export default function DefectMap({ data }: Props) {
               flex: 1,
               minWidth: 180,
               maxWidth: 240,
-              background: "#0f172a",
+              background: "var(--sunken)",
               borderRadius: 10,
-              border: `1px solid ${DEFECT_COLORS[review.defect.defect_type] ?? "#334155"}44`,
+              border: `1px solid ${alpha(DEFECT_COLORS[review.defect.defect_type] ?? "var(--line-strong)", "44")}`,
               padding: 14,
             }}
           >
-            <div style={{ fontSize: 12, color: "#64748b", marginBottom: 8 }}>
+            <div style={{ fontSize: 12, color: "var(--faint)", marginBottom: 8 }}>
               Review Image
               <span
                 onClick={() => setReview(null)}
-                style={{ float: "right", cursor: "pointer", color: "#475569" }}
+                style={{ float: "right", cursor: "pointer", color: "var(--faint)" }}
               >
                 ✕
               </span>
             </div>
 
             {review.loading ? (
-              <div style={{ color: "#64748b", fontSize: 12 }}>Loading...</div>
+              <div style={{ color: "var(--faint)", fontSize: 12 }}>Loading...</div>
             ) : review.image ? (
               <img
                 src={review.image}
@@ -193,12 +194,12 @@ export default function DefectMap({ data }: Props) {
                 ["Pos",   `(${review.x_mm}, ${review.y_mm}) mm`],
               ].map(([label, val]) => (
                 <div key={label}>
-                  <span style={{ color: "#64748b", display: "inline-block", width: 36 }}>{label}</span>
+                  <span style={{ color: "var(--faint)", display: "inline-block", width: 36 }}>{label}</span>
                   <span
                     style={{
                       color: label === "Type"
-                        ? (DEFECT_COLORS[val] ?? "#e2e8f0")
-                        : "#e2e8f0",
+                        ? (DEFECT_COLORS[val] ?? "var(--ink)")
+                        : "var(--ink)",
                       fontWeight: label === "Type" ? 700 : 400,
                     }}
                   >
@@ -212,7 +213,7 @@ export default function DefectMap({ data }: Props) {
       </div>
 
       {!review && (
-        <div style={{ marginTop: 8, fontSize: 11, color: "#475569" }}>
+        <div style={{ marginTop: 8, fontSize: 11, color: "var(--faint)" }}>
           ↑ 점을 클릭하면 Review Image를 볼 수 있습니다
         </div>
       )}

@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agent Hub Focus</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pretendard@1.3.9/dist/web/static/pretendard.min.css">
+<style>
+  :root{
+    --bg:#fbfaf7; --panel:#ffffff; --sand:#f3f1ec; --hover:#f6f4ef;
+    --ink:#1f2623; --sub:#646e69; --faint:#9aa19c;
+    --line:#e8e5dd; --line-strong:#d6d2c8;
+    --green:#2f6d54; --green-hover:#265a45; --green-soft:#e8f0eb; --green-ink:#24553f;
+    --ok:#2f7d57; --ok-soft:#e5f2ea; --warn:#a8680f; --warn-soft:#f8efdf; --err:#b8452f; --err-soft:#f8e8e4;
+    --on-green:#ffffff;
+    --shadow:0 1px 2px rgba(40,36,24,.04),0 4px 16px rgba(40,36,24,.05);
+    color-scheme:light;
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --bg:#111412; --panel:#171b19; --sand:#1d221f; --hover:#1f2522;
+      --ink:#e5e9e6; --sub:#9ba59f; --faint:#6c756f;
+      --line:#262c29; --line-strong:#343b37;
+      --green:#62b28c; --green-hover:#7cc3a0; --green-soft:#17281f; --green-ink:#a3d6bb;
+      --ok:#5cc08e; --ok-soft:#15281d; --warn:#dca352; --warn-soft:#2a2113; --err:#e8806b; --err-soft:#2e1a16;
+      --on-green:#0f1a14; --shadow:none; color-scheme:dark;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#111412; --panel:#171b19; --sand:#1d221f; --hover:#1f2522;
+    --ink:#e5e9e6; --sub:#9ba59f; --faint:#6c756f;
+    --line:#262c29; --line-strong:#343b37;
+    --green:#62b28c; --green-hover:#7cc3a0; --green-soft:#17281f; --green-ink:#a3d6bb;
+    --ok:#5cc08e; --ok-soft:#15281d; --warn:#dca352; --warn-soft:#2a2113; --err:#e8806b; --err-soft:#2e1a16;
+    --on-green:#0f1a14; --shadow:none; color-scheme:dark;
+  }
+
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:"Pretendard","Apple SD Gothic Neo","Malgun Gothic",sans-serif;background:var(--bg);color:var(--ink);font-size:14px;line-height:1.55;-webkit-font-smoothing:antialiased}
+  button,textarea{font:inherit;color:inherit}
+  button{cursor:pointer}
+  .num{font-variant-numeric:tabular-nums}
+  svg.i{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
+  .mono{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:12px}
+
+  /* ── Top bar ── */
+  .top{position:sticky;top:0;z-index:5;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+  .top-in{max-width:1120px;margin:0 auto;height:56px;display:flex;align-items:center;gap:28px;padding:0 24px}
+  .brand{display:flex;align-items:center;gap:9px;font-weight:700;font-size:15px;letter-spacing:-.2px}
+  .leaf{width:24px;height:24px;border-radius:7px;background:var(--green);display:grid;place-items:center;color:var(--on-green)}
+  .leaf svg{width:14px;height:14px}
+  .menu{display:flex;gap:4px}
+  .menu button{border:0;background:none;padding:6px 12px;border-radius:7px;font-size:13.5px;color:var(--sub)}
+  .menu button:hover{color:var(--ink);background:var(--hover)}
+  .menu button.on{color:var(--ink);font-weight:600;background:var(--sand)}
+  .top .right{margin-left:auto;display:flex;align-items:center;gap:10px;font-size:13px;color:var(--sub)}
+  .icon-btn{width:32px;height:32px;border-radius:8px;border:1px solid var(--line);background:var(--panel);display:grid;place-items:center;color:var(--sub)}
+  .icon-btn:hover{color:var(--ink)}
+  .me{width:30px;height:30px;border-radius:50%;background:var(--green-soft);color:var(--green-ink);display:grid;place-items:center;font-size:12px;font-weight:700}
+
+  .screen{display:none}.screen.on{display:block}
+
+  /* ── Hero ── */
+  .hero{max-width:720px;margin:0 auto;padding:72px 24px 0;text-align:center}
+  .hero h1{font-size:30px;font-weight:700;letter-spacing:-.8px;line-height:1.3}
+  .hero p{color:var(--sub);margin-top:8px;font-size:15px}
+  .ask{margin-top:28px;text-align:left;background:var(--panel);border:1px solid var(--line-strong);border-radius:16px;box-shadow:var(--shadow);transition:border-color .15s,box-shadow .15s}
+  .ask:focus-within{border-color:var(--green);box-shadow:0 0 0 4px var(--green-soft)}
+  .ask textarea{display:block;width:100%;border:0;background:none;outline:none;resize:none;padding:18px 20px 8px;font-size:15.5px;min-height:84px}
+  .ask textarea::placeholder{color:var(--faint)}
+  .ask-bar{display:flex;align-items:center;gap:6px;padding:8px 10px 10px 14px}
+  .seg{display:flex;background:var(--sand);border-radius:9px;padding:3px}
+  .seg button{border:0;background:none;border-radius:7px;padding:4px 11px;font-size:12.5px;color:var(--sub)}
+  .seg button.on{background:var(--panel);color:var(--ink);font-weight:600;box-shadow:0 1px 2px rgba(0,0,0,.08)}
+  .seg button:hover:not(.on){color:var(--ink)}
+  .send{margin-left:auto;display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 16px;border:0;border-radius:10px;background:var(--green);color:var(--on-green);font-weight:600;font-size:13.5px}
+  .send:hover{background:var(--green-hover)}
+  .quick{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:16px}
+  .chip{border:1px solid var(--line);background:transparent;border-radius:999px;padding:6px 13px;font-size:12.5px;color:var(--sub)}
+  .chip:hover{border-color:var(--green);color:var(--green-ink);background:var(--green-soft)}
+
+  /* ── Continue ── */
+  .wrap{max-width:1120px;margin:0 auto;padding:0 24px}
+  .blk{margin-top:56px}
+  .blk-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:12px}
+  .blk-head h2{font-size:14px;font-weight:700}
+  .blk-head h2 small{font-weight:500;color:var(--faint);font-size:12.5px;margin-left:6px}
+  .link{border:0;background:none;color:var(--green-ink);font-size:12.5px}
+  .link:hover{text-decoration:underline}
+
+  .conts{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+  .cont{text-align:left;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:8px;min-height:148px}
+  .cont:hover{border-color:var(--line-strong);box-shadow:var(--shadow)}
+  .cont .meta{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--faint)}
+  .cont b{font-size:14px;letter-spacing:-.2px}
+  .cont p{font-size:12.5px;color:var(--sub);flex:1}
+  .cont .foot{display:flex;gap:6px;flex-wrap:wrap}
+  .pill{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;border-radius:999px;padding:2px 8px}
+  .pill.ok{background:var(--ok-soft);color:var(--ok)}
+  .pill.warn{background:var(--warn-soft);color:var(--warn)}
+  .pill.err{background:var(--err-soft);color:var(--err)}
+  .pill.mute{background:var(--sand);color:var(--sub)}
+  .pill.gr{background:var(--green-soft);color:var(--green-ink)}
+  .tt{font-size:11px;background:var(--sand);color:var(--sub);border-radius:5px;padding:1px 7px}
+
+  .cols{display:grid;grid-template-columns:1fr 1fr 1fr;gap:28px;margin:56px auto 72px}
+  .col h3{font-size:13.5px;font-weight:700;padding-bottom:10px;border-bottom:1px solid var(--ink);display:flex;justify-content:space-between;align-items:baseline}
+  .col h3 small{font-weight:500;color:var(--faint);font-size:12px}
+  .row{display:flex;align-items:center;gap:10px;padding:11px 2px;border-bottom:1px solid var(--line);font-size:13px}
+  .row:last-child{border-bottom:0}
+  .glyph{width:28px;height:28px;border-radius:8px;display:grid;place-items:center;font-weight:700;font-size:11.5px;background:var(--sand);color:var(--sub)}
+  .row .nm{font-weight:600;display:block;line-height:1.3}
+  .row .ds{font-size:12px;color:var(--faint)}
+  .row .rt{margin-left:auto;font-size:12px;color:var(--faint);white-space:nowrap}
+  .st{display:inline-flex;align-items:center;gap:5px;font-size:12px;margin-left:auto;white-space:nowrap}
+  .st::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+  .st.ok{color:var(--ok)} .st.warn{color:var(--warn)} .st.err{color:var(--err)}
+  .when{font-size:12px;font-weight:700;color:var(--green-ink);width:58px;flex-shrink:0}
+  .toggle{width:30px;height:18px;border-radius:9px;background:var(--line-strong);border:0;position:relative;flex-shrink:0;margin-left:auto}
+  .toggle::after{content:"";position:absolute;left:2px;top:2px;width:14px;height:14px;border-radius:50%;background:#fff;transition:transform .15s}
+  .toggle.on{background:var(--green)}
+  .toggle.on::after{transform:translateX(12px)}
+  .new{display:block;width:100%;margin-top:10px;border:1px dashed var(--line-strong);background:none;border-radius:9px;padding:9px;color:var(--sub);font-size:12.5px}
+  .new:hover{border-color:var(--green);color:var(--green-ink)}
+
+  /* ── Chat ── */
+  .chat-top{max-width:760px;margin:0 auto;padding:22px 24px 0;display:flex;align-items:center;gap:10px}
+  .crumb{font-size:12.5px;color:var(--faint);display:flex;align-items:center;gap:6px}
+  .crumb button{border:0;background:none;color:var(--sub);font-size:12.5px}
+  .crumb button:hover{color:var(--ink)}
+  .chat-top .right{margin-left:auto;display:flex;gap:6px}
+  .ghost{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 11px;border-radius:8px;border:1px solid var(--line);background:var(--panel);font-size:12.5px;color:var(--sub)}
+  .ghost:hover{color:var(--ink)}
+  .thread{max-width:760px;margin:0 auto;padding:18px 24px 200px}
+  .thread h1{font-size:22px;font-weight:700;letter-spacing:-.5px;margin-bottom:24px}
+  .u{display:flex;justify-content:flex-end;margin-bottom:24px}
+  .u div{background:var(--sand);border-radius:16px 16px 4px 16px;padding:10px 15px;max-width:75%}
+  .steps{display:flex;flex-direction:column;gap:0;margin:0 0 16px;padding-left:2px}
+  .step{display:flex;align-items:center;gap:10px;font-size:12.5px;color:var(--sub);padding:3px 0;position:relative}
+  .step .bullet{width:18px;height:18px;border-radius:50%;background:var(--green-soft);color:var(--green-ink);display:grid;place-items:center}
+  .step .bullet svg{width:11px;height:11px;stroke-width:2.6}
+  .step .ms{color:var(--faint)}
+  .a p{margin-bottom:12px;font-size:14.5px;line-height:1.7}
+  .a strong{font-weight:700}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;margin:6px 0 18px;overflow:hidden}
+  .card-h{display:flex;align-items:center;gap:10px;padding:14px 18px}
+  .card-h b{font-size:14px}
+  .card-h .right{margin-left:auto}
+  .big{display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+  .big div{padding:14px 18px}
+  .big div+div{border-left:1px solid var(--line)}
+  .big small{font-size:12px;color:var(--sub)}
+  .big b{display:block;font-size:24px;letter-spacing:-.6px;font-weight:700}
+  .big em{font-style:normal;font-size:12px;color:var(--faint)}
+  .groups{padding:6px 18px 14px}
+  .g{display:grid;grid-template-columns:90px 1fr 60px;align-items:center;gap:12px;padding:8px 0;font-size:13px}
+  .g .track{height:8px;border-radius:4px;background:var(--sand);position:relative;overflow:hidden}
+  .g .track i{position:absolute;left:0;top:0;bottom:0;border-radius:4px;background:var(--green)}
+  .g .track i.hot{background:var(--err)}
+  .g .v{text-align:right;color:var(--sub)}
+  .g.hot .nm{font-weight:700}
+  .follow{display:flex;gap:8px;flex-wrap:wrap}
+
+  .dock{position:fixed;left:0;right:0;bottom:0;padding:0 24px 22px;background:linear-gradient(to top,var(--bg) 70%,transparent)}
+  .dock .ask{max-width:712px;margin:0 auto}
+  .dock .ask textarea{min-height:54px;font-size:14.5px;padding:15px 18px 4px}
+  .skill-tag{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 10px;border-radius:8px;background:var(--green-soft);color:var(--green-ink);font-size:12.5px;font-weight:600}
+  .limit{font-size:12px;color:var(--faint);margin-left:6px}
+
+  @media (max-width:900px){.conts,.cols{grid-template-columns:1fr}.menu{display:none}}
+  @media (max-width:600px){.hero{padding-top:40px}.hero h1{font-size:24px}.big{grid-template-columns:1fr}.big div+div{border-left:0;border-top:1px solid var(--line)}.seg{display:none}}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute">
+  <symbol id="i-leaf" viewBox="0 0 24 24"><path d="M5 19c0-8 5-14 15-14 0 10-6 15-14 15"/><path d="M5 19 13 11"/></symbol>
+  <symbol id="i-send" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 5 5 9-10"/></symbol>
+  <symbol id="i-left" viewBox="0 0 24 24"><path d="m15 6-6 6 6 6"/></symbol>
+  <symbol id="i-share" viewBox="0 0 24 24"><circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="m8.2 10.8 7.6-4.4M8.2 13.2l7.6 4.4"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+  <symbol id="i-dl" viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></symbol>
+  <symbol id="i-skill" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><path d="M17.5 14v7M14 17.5h7"/></symbol>
+</svg>
+
+<header class="top">
+  <div class="top-in">
+    <div class="brand"><div class="leaf"><svg class="i"><use href="#i-leaf"/></svg></div>Agent Hub</div>
+    <nav class="menu">
+      <button class="on" data-go="home">홈</button>
+      <button data-go="chat">대화</button>
+      <button>스킬</button>
+      <button>이벤터</button>
+      <button>포탈</button>
+    </nav>
+    <div class="right">
+      <button class="icon-btn" id="theme" title="테마 전환"><svg class="i"><use href="#i-moon"/></svg></button>
+      <div class="me">구</div>
+    </div>
+  </div>
+</header>
+
+<!-- ═════════ 홈 ═════════ -->
+<section class="screen on" id="home">
+  <div class="hero">
+    <h1>라인에 대해 무엇이든 물어보세요</h1>
+    <p>포탈을 열지 않아도, 에이전트가 맞는 tool을 골라 대신 확인합니다</p>
+    <div class="ask">
+      <textarea placeholder="예) 어제 M14 CMP 이슈를 우선순위별로 정리해줘"></textarea>
+      <div class="ask-bar">
+        <div class="seg">
+          <button class="on">자동</button><button>라인 운영</button><button>Defect</button><button>수율</button>
+        </div>
+        <button class="send" data-go="chat">질문하기<svg class="i"><use href="#i-send"/></svg></button>
+      </div>
+    </div>
+    <div class="quick">
+      <button class="chip" data-go="chat">오늘 라인 이상 요약</button>
+      <button class="chip" data-go="chat">지금 WIP 현황</button>
+      <button class="chip" data-go="chat">TE2FE35 Defect Map</button>
+      <button class="chip" data-go="chat">Recipe 기준 수율 비교</button>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <div class="blk">
+      <div class="blk-head"><h2>이어서 하기<small>최근 대화</small></h2><button class="link">전체 보기</button></div>
+      <div class="conts">
+        <button class="cont" data-go="chat">
+          <div class="meta"><span>라인 운영</span>·<span class="num">09:41</span></div>
+          <b>M14 CMP WIP 현황</b>
+          <p>Total 1,284 · EOD 예상 96% · W CMP 병목 (CMP-W-03 DOWN)</p>
+          <div class="foot"><span class="tt mono">get_wip_status</span><span class="tt mono">get_lot_hold_info</span></div>
+        </button>
+        <button class="cont" data-go="chat">
+          <div class="meta"><span>Defect</span>·<span class="num">09:12</span></div>
+          <b>TE2FE35 Wafer 5 Step Overlay</b>
+          <p>Carryover 클러스터 4건 — LITHO PARTICLE → INSP CLUSTER 변형 2건</p>
+          <div class="foot"><span class="tt mono">get_defect_step_overlay</span></div>
+        </button>
+        <button class="cont" data-go="chat">
+          <div class="meta"><span>이벤터</span>·<span class="num">07:30</span></div>
+          <b>전일 이슈 리포트</b>
+          <p>P1 1건(CMP-W-03 복구) · Open Hold 7 · Cube #CMP-일일현황 공유됨</p>
+          <div class="foot"><span class="pill gr">스킬 · 출근 전 라인 점검</span></div>
+        </button>
+      </div>
+    </div>
+
+    <div class="cols">
+      <div class="col">
+        <h3>포탈<small>상태</small></h3>
+        <div class="row"><div class="glyph">M</div><div><span class="nm">MICO</span><span class="ds">CMP 최적화 알고리즘</span></div><span class="st ok">정상</span></div>
+        <div class="row"><div class="glyph">S</div><div><span class="nm">Siria</span><span class="ds">라인 운영 RAG</span></div><span class="st ok">3.2s</span></div>
+        <div class="row"><div class="glyph">D</div><div><span class="nm">DataHub</span><span class="ds">실시간 모니터링</span></div><span class="st warn">지연 4분</span></div>
+        <div class="row"><div class="glyph">A</div><div><span class="nm">알고리즘 관리</span><span class="ds">등록 · 배포</span></div><span class="st err">점검중</span></div>
+      </div>
+      <div class="col">
+        <h3>내 스킬<small>tool 조합</small></h3>
+        <div class="row"><div><span class="nm">출근 전 라인 점검</span><span class="ds">리포트 · WIP · Hold</span></div><span class="rt">주 5회</span></div>
+        <div class="row"><div><span class="nm">Defect 원인 추적</span><span class="ds">Map · Trend · Overlay</span></div><span class="rt">주 3회</span></div>
+        <div class="row"><div><span class="nm">수율 브리핑</span><span class="ds">Grouping · Wafer Map</span></div><span class="rt">주 2회</span></div>
+        <button class="new">+ tool을 골라 새 스킬 만들기</button>
+      </div>
+      <div class="col">
+        <h3>이벤터<small>정기 실행</small></h3>
+        <div class="row"><span class="when num">07:30</span><div><span class="nm">전일 이슈 리포트</span><span class="ds">오늘 07:31 완료</span></div><button class="toggle on"></button></div>
+        <div class="row"><span class="when num">13:00</span><div><span class="nm">오전 장비 이상 요약</span><span class="ds">팀 메일</span></div><button class="toggle on"></button></div>
+        <div class="row"><span class="when num">17:00</span><div><span class="nm">WIP EOD 점검</span><span class="ds" style="color:var(--err)">어제 실패</span></div><button class="toggle on"></button></div>
+        <div class="row"><span class="when num">금 17:00</span><div><span class="nm">주간 수율 브리핑</span><span class="ds">PPT 초안</span></div><button class="toggle"></button></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═════════ 대화 ═════════ -->
+<section class="screen" id="chat">
+  <div class="chat-top">
+    <div class="crumb"><button data-go="home"><svg class="i" style="width:14px;height:14px;vertical-align:-2px"><use href="#i-left"/></svg> 홈</button>/ 라인 운영 / <span class="num">09:41</span></div>
+    <div class="right">
+      <button class="ghost"><svg class="i"><use href="#i-share"/></svg>공유</button>
+      <button class="ghost"><svg class="i"><use href="#i-clock"/></svg>이벤터로</button>
+    </div>
+  </div>
+  <div class="thread">
+    <h1>M14 CMP WIP 현황</h1>
+
+    <div class="u"><div>M14 CMP Area 지금 WIP 현황 알려줘</div></div>
+
+    <div class="steps">
+      <div class="step"><span class="bullet"><svg class="i"><use href="#i-check"/></svg></span>WIP 현황 조회<span class="mono">area_key="M14 CMP"</span><span class="ms num">0.8s</span></div>
+      <div class="step"><span class="bullet"><svg class="i"><use href="#i-check"/></svg></span>Hold Lot 확인<span class="mono">lot_id="TE2FE38"</span><span class="ms num">0.5s</span></div>
+    </div>
+
+    <div class="a">
+      <p>M14 CMP 현재 WIP는 <strong>1,284장</strong>입니다. 금일 이동은 612 / 1,400이고, 지금 속도면 EOD <strong>1,344장(96%)</strong>으로 목표에 조금 못 미칩니다.</p>
+    </div>
+
+    <div class="card">
+      <div class="card-h"><b>WIP 현황 · M14 CMP</b><span class="pill mute num">14:12 기준</span><div class="right"><button class="ghost"><svg class="i"><use href="#i-dl"/></svg>Excel</button></div></div>
+      <div class="big">
+        <div><small>Total WIP</small><b class="num">1,284</b><em>Run 402 · Queue 882</em></div>
+        <div><small>이동 / 목표</small><b class="num">612</b><em>/ 1,400</em></div>
+        <div><small>EOD 예상</small><b class="num" style="color:var(--warn)">96%</b><em>1,344장</em></div>
+      </div>
+      <div class="groups">
+        <div class="g"><span class="nm">STI CMP</span><div class="track"><i style="width:38%"></i></div><span class="v num">246</span></div>
+        <div class="g"><span class="nm">Poly CMP</span><div class="track"><i style="width:31%"></i></div><span class="v num">198</span></div>
+        <div class="g hot"><span class="nm">W CMP</span><div class="track"><i class="hot" style="width:64%"></i></div><span class="v num" style="color:var(--err);font-weight:700">412</span></div>
+        <div class="g"><span class="nm">Cu1 CMP</span><div class="track"><i style="width:39%"></i></div><span class="v num">251</span></div>
+        <div class="g"><span class="nm">Cu2 CMP</span><div class="track"><i style="width:28%"></i></div><span class="v num">177</span></div>
+      </div>
+    </div>
+
+    <div class="a">
+      <p>병목은 <strong>W CMP</strong>입니다. CMP-W-03이 DOWN 상태라 대기 WIP가 212장까지 쌓였습니다. 복구를 가장 먼저 하시고, 측정 재검으로 Hold 중인 TE2FE38도 disposition이 필요합니다.</p>
+    </div>
+
+    <div class="follow">
+      <button class="chip">M14 CMP 전일 이슈 정리</button>
+      <button class="chip">TE2FE38 Defect Map</button>
+      <button class="chip">Equipment 기준 수율 비교</button>
+    </div>
+  </div>
+
+  <div class="dock">
+    <div class="ask">
+      <textarea placeholder="이어서 질문하세요…"></textarea>
+      <div class="ask-bar">
+        <span class="skill-tag"><svg class="i" style="width:14px;height:14px"><use href="#i-skill"/></svg>출근 전 라인 점검 ✕</span>
+        <span class="limit">tool 3개만 사용</span>
+        <button class="send">보내기<svg class="i"><use href="#i-send"/></svg></button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+  const go = id => {
+    document.querySelectorAll('.screen').forEach(s => s.classList.toggle('on', s.id === id));
+    document.querySelectorAll('.menu button').forEach(b => b.classList.toggle('on', b.dataset.go === id));
+    scrollTo(0, 0);
+  };
+  document.addEventListener('click', e => { const t = e.target.closest('[data-go]'); if (t) go(t.dataset.go); });
+  document.querySelectorAll('.seg button').forEach(b => b.addEventListener('click', () => {
+    b.parentElement.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
+  }));
+  document.querySelectorAll('.toggle').forEach(t => t.addEventListener('click', () => t.classList.toggle('on')));
+
+  const root = document.documentElement, themeBtn = document.getElementById('theme');
+  const isDark = () => root.dataset.theme ? root.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+  const paint = () => themeBtn.querySelector('use').setAttribute('href', isDark() ? '#i-sun' : '#i-moon');
+  try { const s = localStorage.getItem('hub2-theme'); if (s) root.dataset.theme = s; } catch {}
+  paint();
+  themeBtn.addEventListener('click', () => {
+    root.dataset.theme = isDark() ? 'light' : 'dark';
+    try { localStorage.setItem('hub2-theme', root.dataset.theme); } catch {}
+    paint();
+  });
+</script>
+</body>
+</html>

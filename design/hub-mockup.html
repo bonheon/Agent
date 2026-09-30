@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fab Agent Hub</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pretendard@1.3.9/dist/web/static/pretendard.min.css">
+<style>
+  :root{
+    --bg:#f6f7f9; --panel:#ffffff; --sunken:#f2f4f7; --hover:#f4f6f8;
+    --ink:#161b22; --sub:#5b6572; --faint:#8f98a3;
+    --line:#e5e8ec; --line-strong:#d3d8de;
+    --accent:#2c5b8f; --accent-hover:#234b77; --accent-soft:#eaf1f8; --accent-ink:#1f4670;
+    --ok:#1f8a55; --ok-soft:#e6f4ec;
+    --warn:#b8660b; --warn-soft:#fcf1e3;
+    --err:#c2412d; --err-soft:#fbeae7;
+    --shadow:0 1px 2px rgba(16,24,40,.04),0 1px 3px rgba(16,24,40,.06);
+    --radius:10px;
+    color-scheme:light;
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --bg:#0e1115; --panel:#151920; --sunken:#11151b; --hover:#1a1f27;
+      --ink:#e6e9ee; --sub:#9aa4b1; --faint:#6b7480;
+      --line:#232932; --line-strong:#313844;
+      --accent:#6ea2d8; --accent-hover:#89b4e2; --accent-soft:#18263a; --accent-ink:#a9c8ea;
+      --ok:#4cc38a; --ok-soft:#14281e; --warn:#e0a04a; --warn-soft:#2b2112; --err:#ec7a66; --err-soft:#2f1a17;
+      --shadow:none; color-scheme:dark;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0e1115; --panel:#151920; --sunken:#11151b; --hover:#1a1f27;
+    --ink:#e6e9ee; --sub:#9aa4b1; --faint:#6b7480;
+    --line:#232932; --line-strong:#313844;
+    --accent:#6ea2d8; --accent-hover:#89b4e2; --accent-soft:#18263a; --accent-ink:#a9c8ea;
+    --ok:#4cc38a; --ok-soft:#14281e; --warn:#e0a04a; --warn-soft:#2b2112; --err:#ec7a66; --err-soft:#2f1a17;
+    --shadow:none; color-scheme:dark;
+  }
+
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%}
+  body{font-family:"Pretendard","Apple SD Gothic Neo","Malgun Gothic",sans-serif;background:var(--bg);color:var(--ink);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+  button,input,select,textarea{font:inherit;color:inherit}
+  button{cursor:pointer}
+  .num{font-variant-numeric:tabular-nums}
+  svg.i{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
+
+  .app{display:grid;grid-template-columns:232px 1fr;height:100vh}
+
+  /* ── Sidebar ── */
+  aside{background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
+  .brand{display:flex;align-items:center;gap:10px;padding:18px 18px 16px}
+  .mark{width:28px;height:28px;border-radius:7px;background:var(--accent);color:#fff;display:grid;place-items:center;font-weight:700;font-size:13px}
+  .brand b{font-size:15px;letter-spacing:-.2px;display:block;line-height:1.2}
+  .brand small{font-size:11px;color:var(--faint)}
+  .new-chat{margin:0 12px 10px;display:flex;align-items:center;justify-content:center;gap:6px;height:36px;border-radius:8px;border:1px solid var(--line-strong);background:var(--panel);font-size:13px;font-weight:600}
+  .new-chat:hover{background:var(--hover)}
+  .new-chat kbd{margin-left:auto;font-family:inherit;font-size:11px;color:var(--faint)}
+  nav{padding:6px 10px;overflow:auto;flex:1}
+  .nav-label{font-size:11px;font-weight:600;color:var(--faint);padding:14px 10px 6px;letter-spacing:.2px}
+  .nav-item{display:flex;align-items:center;gap:10px;width:100%;padding:7px 10px;border:0;background:none;border-radius:7px;color:var(--sub);font-size:13.5px;text-align:left}
+  .nav-item:hover{background:var(--hover);color:var(--ink)}
+  .nav-item.active{background:var(--accent-soft);color:var(--accent-ink);font-weight:600}
+  .nav-item .cnt{margin-left:auto;font-size:11px;color:var(--faint);font-weight:500}
+  .recent{display:block;width:100%;text-align:left;border:0;background:none;padding:6px 10px;border-radius:7px;font-size:13px;color:var(--sub);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .recent:hover{background:var(--hover);color:var(--ink)}
+  .recent.active{color:var(--ink);background:var(--hover)}
+  .side-foot{border-top:1px solid var(--line);padding:12px 14px;display:flex;align-items:center;gap:10px}
+  .avatar{width:30px;height:30px;border-radius:50%;background:var(--sunken);border:1px solid var(--line);display:grid;place-items:center;font-size:12px;font-weight:600;color:var(--sub)}
+  .side-foot b{font-size:13px;display:block;line-height:1.2}
+  .side-foot small{font-size:11px;color:var(--faint)}
+  .icon-btn{margin-left:auto;width:30px;height:30px;border-radius:7px;border:1px solid var(--line);background:var(--panel);display:grid;place-items:center;color:var(--sub)}
+  .icon-btn:hover{color:var(--ink);background:var(--hover)}
+
+  /* ── Main ── */
+  main{overflow:auto;min-width:0}
+  .screen{display:none}
+  .screen.on{display:block}
+  .page{max-width:1160px;margin:0 auto;padding:28px 32px 56px}
+  .page-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:22px}
+  h1{font-size:20px;font-weight:700;letter-spacing:-.3px}
+  .page-head p{color:var(--sub);font-size:13px;margin-top:3px}
+  h2{font-size:14px;font-weight:700;letter-spacing:-.1px}
+  .sec-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+  .sec-head .cnt{color:var(--faint);font-weight:500;margin-left:6px;font-size:12px}
+  .link{font-size:12.5px;color:var(--accent);background:none;border:0}
+  .link:hover{text-decoration:underline}
+
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
+  .btn{display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 14px;border-radius:8px;border:1px solid var(--line-strong);background:var(--panel);font-size:13px;font-weight:600}
+  .btn:hover{background:var(--hover)}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  .btn.primary:hover{background:var(--accent-hover);border-color:var(--accent-hover)}
+  :root[data-theme="dark"] .btn.primary{color:#0e1115}
+  @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .btn.primary{color:#0e1115}}
+  .btn.sm{height:28px;padding:0 10px;font-size:12px}
+  .pill{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;border-radius:999px;padding:2px 8px;line-height:1.5}
+  .pill.ok{background:var(--ok-soft);color:var(--ok)}
+  .pill.warn{background:var(--warn-soft);color:var(--warn)}
+  .pill.err{background:var(--err-soft);color:var(--err)}
+  .pill.mute{background:var(--sunken);color:var(--sub)}
+  .pill.acc{background:var(--accent-soft);color:var(--accent-ink)}
+  .dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+  .dot.ok{background:var(--ok)} .dot.warn{background:var(--warn)} .dot.err{background:var(--err)} .dot.mute{background:var(--line-strong)}
+  .tag{font-size:11px;color:var(--sub);background:var(--sunken);border:1px solid var(--line);border-radius:5px;padding:1px 6px;font-family:ui-monospace,"SF Mono",Menlo,monospace}
+
+  /* ── Composer ── */
+  .composer{padding:0;overflow:hidden}
+  .composer textarea{display:block;width:100%;border:0;background:transparent;resize:none;outline:none;padding:16px 18px 6px;font-size:15px;min-height:76px}
+  .composer textarea::placeholder{color:var(--faint)}
+  .composer .bar{display:flex;align-items:center;gap:8px;padding:10px 12px 12px 14px}
+  .select{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 10px;border-radius:7px;border:1px solid var(--line);background:var(--sunken);font-size:12.5px;color:var(--sub)}
+  .select:hover{color:var(--ink)}
+  .select b{color:var(--ink);font-weight:600}
+  .composer .hint{font-size:12px;color:var(--faint);margin-left:auto}
+  .send{width:34px;height:34px;border-radius:8px;border:0;background:var(--accent);color:#fff;display:grid;place-items:center}
+  .send:hover{background:var(--accent-hover)}
+  .composer:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+  .quick{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+  .chip{border:1px solid var(--line);background:var(--panel);border-radius:999px;padding:5px 12px;font-size:12.5px;color:var(--sub)}
+  .chip:hover{border-color:var(--accent);color:var(--accent-ink)}
+
+  /* ── Home ── */
+  .home-grid{display:grid;grid-template-columns:1fr 320px;gap:24px;margin-top:28px}
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:22px}
+  .kpi{padding:14px 16px}
+  .kpi small{font-size:12px;color:var(--sub)}
+  .kpi .v{font-size:22px;font-weight:700;letter-spacing:-.4px;margin-top:2px}
+  .kpi .d{font-size:12px;color:var(--faint)}
+  .kpi .d.up{color:var(--err)} .kpi .d.good{color:var(--ok)}
+
+  table{width:100%;border-collapse:collapse}
+  .tbl th{text-align:left;font-size:11.5px;font-weight:600;color:var(--faint);padding:9px 14px;border-bottom:1px solid var(--line)}
+  .tbl td{padding:12px 14px;border-bottom:1px solid var(--line);vertical-align:top;font-size:13px}
+  .tbl tr:last-child td{border-bottom:0}
+  .tbl tbody tr{cursor:pointer}
+  .tbl tbody tr:hover td{background:var(--hover)}
+  .tbl .tm{width:70px;color:var(--faint);white-space:nowrap}
+  .tbl .ag{width:110px;color:var(--sub);white-space:nowrap}
+  .q-title{font-weight:600;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .q-sub{color:var(--sub);font-size:12.5px;margin-top:2px}
+
+  .rail{display:flex;flex-direction:column;gap:20px}
+  .list-row{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--line);font-size:13px}
+  .list-row:last-child{border-bottom:0}
+  .list-row .nm{font-weight:600}
+  .list-row .ds{color:var(--faint);font-size:12px}
+  .list-row .rt{margin-left:auto;font-size:12px;color:var(--faint);white-space:nowrap}
+  .list-row .rt.w{color:var(--warn)} .list-row .rt.e{color:var(--err)}
+  .ev-when{font-size:12px;font-weight:600;color:var(--accent-ink);width:64px;flex-shrink:0}
+
+  /* ── Chat ── */
+  .chat{display:flex;flex-direction:column;height:100vh}
+  .chat-head{display:flex;align-items:center;gap:12px;padding:14px 28px;border-bottom:1px solid var(--line);background:var(--panel)}
+  .chat-head h1{font-size:15px}
+  .chat-head .meta{font-size:12px;color:var(--faint)}
+  .chat-head .right{margin-left:auto;display:flex;gap:8px}
+  .thread{flex:1;overflow:auto}
+  .thread-inner{max-width:860px;margin:0 auto;padding:28px 28px 12px}
+  .msg{margin-bottom:28px}
+  .msg.user{display:flex;justify-content:flex-end}
+  .msg.user .bubble{background:var(--accent-soft);color:var(--ink);border-radius:14px 14px 4px 14px;padding:10px 14px;max-width:70%;font-size:14px}
+  .who{display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:600;margin-bottom:8px}
+  .who .mark{width:22px;height:22px;font-size:10px;border-radius:6px}
+  .who small{color:var(--faint);font-weight:500}
+  .trace{border:1px solid var(--line);border-radius:8px;background:var(--sunken);margin-bottom:12px;font-size:12.5px}
+  .trace summary{list-style:none;display:flex;align-items:center;gap:8px;padding:8px 12px;color:var(--sub);cursor:pointer}
+  .trace summary::-webkit-details-marker{display:none}
+  .trace summary .chev{margin-left:auto;transition:transform .15s}
+  .trace[open] summary .chev{transform:rotate(180deg)}
+  .trace ol{list-style:none;border-top:1px solid var(--line);padding:6px 12px 8px}
+  .trace li{display:flex;align-items:center;gap:8px;padding:4px 0;color:var(--sub)}
+  .trace li .ms{margin-left:auto;color:var(--faint)}
+  .check{color:var(--ok)}
+  .answer p{margin-bottom:10px}
+  .answer ul{margin:0 0 10px 18px}
+  .answer li{margin-bottom:3px}
+  .answer strong{font-weight:700}
+  .md-table{border:1px solid var(--line);border-radius:8px;overflow:hidden;margin:4px 0 14px}
+  .md-table th{background:var(--sunken);text-align:left;font-size:12px;color:var(--sub);font-weight:600;padding:8px 12px;border-bottom:1px solid var(--line)}
+  .md-table td{padding:8px 12px;border-bottom:1px solid var(--line);font-size:13px}
+  .md-table tr:last-child td{border-bottom:0}
+
+  .viz{border:1px solid var(--line);border-radius:var(--radius);background:var(--panel);margin:6px 0 14px;overflow:hidden}
+  .viz-head{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--line)}
+  .viz-head b{font-size:13.5px}
+  .viz-head .right{margin-left:auto;display:flex;gap:6px}
+  .viz-body{padding:16px}
+  .mini-kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px}
+  .mini-kpis div{background:var(--sunken);border-radius:8px;padding:10px 12px}
+  .mini-kpis small{font-size:11.5px;color:var(--sub)}
+  .mini-kpis b{display:block;font-size:18px;letter-spacing:-.3px}
+  .mini-kpis em{font-style:normal;font-size:11.5px;color:var(--faint);margin-left:4px;font-weight:500}
+  .progress{position:relative;height:8px;background:var(--sunken);border-radius:4px;overflow:hidden;margin:6px 0 4px}
+  .progress .a{position:absolute;left:0;top:0;bottom:0;background:var(--accent);border-radius:4px}
+  .progress .p{position:absolute;top:0;bottom:0;background:var(--accent);opacity:.3}
+  .progress .t{position:absolute;top:-2px;bottom:-2px;width:2px;background:var(--ink)}
+  .prog-legend{display:flex;justify-content:space-between;font-size:11.5px;color:var(--faint);margin-bottom:16px}
+  .eq-tbl th{font-size:11.5px;color:var(--faint);font-weight:600;text-align:left;padding:6px 8px;border-bottom:1px solid var(--line)}
+  .eq-tbl td{font-size:12.5px;padding:7px 8px;border-bottom:1px solid var(--line)}
+  .eq-tbl tr:last-child td{border-bottom:0}
+  .eq-tbl td.r,.eq-tbl th.r{text-align:right}
+  .bar-cell{display:flex;align-items:center;gap:8px;justify-content:flex-end}
+  .bar-cell i{display:block;height:5px;border-radius:3px;background:var(--accent);opacity:.7}
+
+  .follow{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
+  .chat-foot{padding:12px 28px 20px}
+  .chat-foot .composer{max-width:860px;margin:0 auto}
+  .chat-foot .composer textarea{min-height:52px;padding:14px 16px 4px;font-size:14px}
+  .skill-on{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 10px;border-radius:7px;background:var(--accent-soft);color:var(--accent-ink);font-size:12.5px;font-weight:600}
+
+  /* ── Skills ── */
+  .split{display:grid;grid-template-columns:300px 1fr;gap:20px;align-items:start}
+  .sk-item{display:block;width:100%;text-align:left;border:0;background:none;padding:12px 14px;border-bottom:1px solid var(--line)}
+  .sk-item:last-child{border-bottom:0}
+  .sk-item:hover{background:var(--hover)}
+  .sk-item.active{background:var(--accent-soft)}
+  .sk-item b{font-size:13.5px;display:block}
+  .sk-item small{font-size:12px;color:var(--faint)}
+  .form{padding:22px 24px}
+  .field{margin-bottom:18px}
+  .field label{display:block;font-size:12.5px;font-weight:600;margin-bottom:6px}
+  .field label span{color:var(--faint);font-weight:500;margin-left:6px}
+  .input,.textarea{width:100%;border:1px solid var(--line-strong);background:var(--panel);border-radius:8px;padding:8px 12px;font-size:13.5px;outline:none}
+  .textarea{min-height:110px;resize:vertical;line-height:1.6}
+  .input:focus,.textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+  .tool-group{margin-bottom:14px}
+  .tool-group h3{font-size:12px;color:var(--faint);font-weight:600;margin-bottom:6px}
+  .tools{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .tool{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--line);border-radius:8px;padding:10px 12px;cursor:pointer;background:var(--panel)}
+  .tool:hover{border-color:var(--line-strong)}
+  .tool.sel{border-color:var(--accent);background:var(--accent-soft)}
+  .tool input{margin-top:3px;accent-color:var(--accent)}
+  .tool b{font-size:13px;display:block}
+  .tool code{font-size:11px;color:var(--faint);font-family:ui-monospace,"SF Mono",Menlo,monospace}
+  .tool p{font-size:12px;color:var(--sub);margin-top:2px}
+  .note{display:flex;gap:10px;align-items:flex-start;background:var(--sunken);border-radius:8px;padding:10px 12px;font-size:12.5px;color:var(--sub)}
+  .form-foot{display:flex;align-items:center;gap:8px;border-top:1px solid var(--line);padding:14px 24px}
+  .form-foot .sp{margin-left:auto}
+
+  /* ── Eventer ── */
+  .toggle{width:34px;height:20px;border-radius:10px;background:var(--line-strong);border:0;position:relative;flex-shrink:0;transition:background .15s}
+  .toggle::after{content:"";position:absolute;left:2px;top:2px;width:16px;height:16px;border-radius:50%;background:#fff;transition:transform .15s;box-shadow:0 1px 2px rgba(0,0,0,.2)}
+  .toggle.on{background:var(--accent)}
+  .toggle.on::after{transform:translateX(14px)}
+  .ev-tbl td{vertical-align:middle}
+  .ev-tbl .when{font-weight:600;white-space:nowrap}
+  .ev-tbl .when small{display:block;font-weight:500;color:var(--faint);font-size:12px}
+  tr.off td{color:var(--faint)}
+  tr.off .q-title{color:var(--faint)}
+  .timeline{padding:6px 16px 10px}
+  .tl{display:grid;grid-template-columns:52px 14px 1fr;gap:10px;padding:10px 0}
+  .tl time{font-size:12px;color:var(--faint);text-align:right;padding-top:1px}
+  .tl .rail-dot{position:relative}
+  .tl .rail-dot::before{content:"";position:absolute;left:6px;top:0;bottom:-20px;width:1px;background:var(--line)}
+  .tl:last-child .rail-dot::before{display:none}
+  .tl .rail-dot i{position:absolute;left:2px;top:5px;width:9px;height:9px;border-radius:50%;background:var(--panel);border:2px solid var(--line-strong)}
+  .tl .rail-dot i.ok{border-color:var(--ok);background:var(--ok)}
+  .tl .rail-dot i.err{border-color:var(--err);background:var(--err)}
+  .tl b{font-size:13px}
+  .tl small{display:block;font-size:12px;color:var(--sub)}
+
+  @media (max-width:980px){
+    .home-grid,.split{grid-template-columns:1fr}
+    .kpis{grid-template-columns:repeat(2,1fr)}
+  }
+  @media (max-width:720px){
+    .app{grid-template-columns:1fr}
+    aside{display:none}
+    .page{padding:20px 16px 40px}
+    .tools{grid-template-columns:1fr}
+    .thread-inner,.chat-head,.chat-foot{padding-left:16px;padding-right:16px}
+    .composer .hint{display:none}
+  }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute">
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></symbol>
+  <symbol id="i-chat" viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></symbol>
+  <symbol id="i-skill" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><path d="M17.5 14v7M14 17.5h7"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+  <symbol id="i-grid" viewBox="0 0 24 24"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-send" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 5 5 9-10"/></symbol>
+  <symbol id="i-tool" viewBox="0 0 24 24"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.2L3 17.8V21h3.2l6.3-6.3a4 4 0 0 0 5.2-5.4l-2.6 2.6-2.4-.6-.6-2.4z"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 5v14l11-7z"/></symbol>
+  <symbol id="i-dl" viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></symbol>
+  <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></symbol>
+  <symbol id="i-share" viewBox="0 0 24 24"><circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="m8.2 10.8 7.6-4.4M8.2 13.2l7.6 4.4"/></symbol>
+</svg>
+
+<div class="app">
+  <!-- ═════════ Sidebar ═════════ -->
+  <aside>
+    <div class="brand">
+      <div class="mark">F</div>
+      <div><b>Fab Agent Hub</b><small>M14 · CMP 기술팀</small></div>
+    </div>
+    <button class="new-chat" data-go="chat"><svg class="i"><use href="#i-plus"/></svg>새 대화<kbd>⌘K</kbd></button>
+    <nav>
+      <button class="nav-item active" data-go="home"><svg class="i"><use href="#i-home"/></svg>홈</button>
+      <button class="nav-item" data-go="chat"><svg class="i"><use href="#i-chat"/></svg>대화</button>
+      <button class="nav-item" data-go="skills"><svg class="i"><use href="#i-skill"/></svg>스킬<span class="cnt">4</span></button>
+      <button class="nav-item" data-go="events"><svg class="i"><use href="#i-clock"/></svg>이벤터<span class="cnt">4</span></button>
+
+      <div class="nav-label">최근 대화</div>
+      <button class="recent" data-go="chat">M14 CMP WIP 현황</button>
+      <button class="recent" data-go="chat">TE2FE35 Wafer 5 Step Overlay</button>
+      <button class="recent" data-go="chat">Recipe 기준 수율 Grouping</button>
+      <button class="recent" data-go="chat">전일 이슈 리포트 (09/29)</button>
+      <button class="recent" data-go="chat">TE2FE38 Hold 원인</button>
+    </nav>
+    <div class="side-foot">
+      <div class="avatar">구</div>
+      <div><b>구본헌</b><small>CMP 기술팀</small></div>
+      <button class="icon-btn" id="theme" title="테마 전환"><svg class="i"><use href="#i-moon"/></svg></button>
+    </div>
+  </aside>
+
+  <main>
+    <!-- ═════════ 홈 ═════════ -->
+    <section class="screen on" id="home">
+      <div class="page">
+        <div class="page-head">
+          <div>
+            <h1>좋은 아침입니다</h1>
+            <p>2026년 9월 30일 수요일 · 오늘 예약된 이벤터 3건, 확인 필요 항목 2건</p>
+          </div>
+        </div>
+
+        <div class="card composer">
+          <textarea placeholder="라인에 대해 질문하세요.  / 를 입력하면 스킬을 불러옵니다."></textarea>
+          <div class="bar">
+            <button class="select">에이전트 <b>자동 선택</b><svg class="i"><use href="#i-down"/></svg></button>
+            <button class="select"><svg class="i"><use href="#i-skill"/></svg>스킬 없음</button>
+            <span class="hint">Enter 전송 · Shift+Enter 줄바꿈</span>
+            <button class="send" data-go="chat" aria-label="전송"><svg class="i"><use href="#i-send"/></svg></button>
+          </div>
+        </div>
+        <div class="quick">
+          <button class="chip" data-go="chat">M14 CMP 전일 이슈 정리해줘</button>
+          <button class="chip" data-go="chat">지금 WIP 현황 알려줘</button>
+          <button class="chip" data-go="chat">전체 Lot Recipe 기준 수율 분석</button>
+          <button class="chip" data-go="chat">TE2FE35 Defect Map 보여줘</button>
+        </div>
+
+        <div class="kpis">
+          <div class="card kpi"><small>WIP (M14 CMP)</small><div class="v num">1,284</div><div class="d num">전일 대비 +46</div></div>
+          <div class="card kpi"><small>금일 이동 / 목표</small><div class="v num">612 <span style="font-size:14px;color:var(--faint);font-weight:500">/ 1,400</span></div><div class="d good">EOD 예상 96%</div></div>
+          <div class="card kpi"><small>Open Hold</small><div class="v num">7</div><div class="d up">신규 3건</div></div>
+          <div class="card kpi"><small>장비 DOWN</small><div class="v num">2</div><div class="d up">CMP-W-03 · CMP-CU-07</div></div>
+        </div>
+
+        <div class="home-grid">
+          <div>
+            <div class="sec-head"><h2>최근 대화<span class="cnt">오늘 9건</span></h2><button class="link" data-go="chat">전체 보기</button></div>
+            <div class="card">
+              <table class="tbl">
+                <thead><tr><th class="tm">시각</th><th class="ag">에이전트</th><th>내용</th></tr></thead>
+                <tbody>
+                  <tr data-go="chat"><td class="tm num">09:41</td><td class="ag">라인 운영</td>
+                    <td><div class="q-title">M14 CMP WIP 현황<span class="tag">get_wip_status</span></div><div class="q-sub">Total 1,284 · EOD 예상 1,344 / 1,400 (96%) · W CMP 병목</div></td></tr>
+                  <tr data-go="chat"><td class="tm num">09:12</td><td class="ag">Defect 분석</td>
+                    <td><div class="q-title">TE2FE35 Wafer 5 Step 간 Defect Overlay</div><div class="q-sub">Carryover 클러스터 4건 — LITHO PARTICLE → INSP CLUSTER 변형 2건</div></td></tr>
+                  <tr data-go="chat"><td class="tm num">08:50</td><td class="ag">수율 분석</td>
+                    <td><div class="q-title">Recipe 기준 수율 Grouping<span class="pill acc">스킬 · 수율 브리핑</span></div><div class="q-sub">8 Lot · RCP-B PT1H 평균 −2.1%p, bl_lkg 상승</div></td></tr>
+                  <tr data-go="chat"><td class="tm num">07:30</td><td class="ag">이벤터</td>
+                    <td><div class="q-title">전일 이슈 리포트<span class="pill mute">자동 실행</span></div><div class="q-sub">P1 1건(CMP-W-03 복구) · Cube #CMP-일일현황 공유 완료</div></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="rail">
+            <div>
+              <div class="sec-head"><h2>포탈 상태</h2><button class="link">전체</button></div>
+              <div class="card">
+                <div class="list-row"><span class="dot ok"></span><span class="nm">MICO</span><span class="ds">최적화</span><span class="rt">정상</span></div>
+                <div class="list-row"><span class="dot ok"></span><span class="nm">Siria</span><span class="ds">RAG</span><span class="rt num">3.2s</span></div>
+                <div class="list-row"><span class="dot warn"></span><span class="nm">DataHub</span><span class="ds">모니터링</span><span class="rt w">수집 지연 4분</span></div>
+                <div class="list-row"><span class="dot err"></span><span class="nm">알고리즘 관리</span><span class="rt e">점검중</span></div>
+              </div>
+            </div>
+            <div>
+              <div class="sec-head"><h2>오늘 이벤터</h2><button class="link" data-go="events">관리</button></div>
+              <div class="card">
+                <div class="list-row"><span class="ev-when num">07:30</span><span class="nm" style="font-weight:500">전일 이슈 리포트</span><span class="rt"><span class="pill ok">완료</span></span></div>
+                <div class="list-row"><span class="ev-when num">13:00</span><span class="nm" style="font-weight:500">오전 장비 이상 요약</span><span class="rt"><span class="pill mute">대기</span></span></div>
+                <div class="list-row"><span class="ev-when num">17:00</span><span class="nm" style="font-weight:500">WIP EOD 점검</span><span class="rt"><span class="pill mute">대기</span></span></div>
+              </div>
+            </div>
+            <div>
+              <div class="sec-head"><h2>내 스킬</h2><button class="link" data-go="skills">새로 만들기</button></div>
+              <div class="card">
+                <div class="list-row"><span class="nm" style="font-weight:500">출근 전 라인 점검</span><span class="rt">tool 3 · 주 5회</span></div>
+                <div class="list-row"><span class="nm" style="font-weight:500">Defect 원인 추적</span><span class="rt">tool 3 · 주 3회</span></div>
+                <div class="list-row"><span class="nm" style="font-weight:500">수율 브리핑</span><span class="rt">tool 2 · 주 2회</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═════════ 대화 ═════════ -->
+    <section class="screen" id="chat">
+      <div class="chat">
+        <div class="chat-head">
+          <div><h1>M14 CMP WIP 현황</h1><div class="meta">라인 운영 에이전트 · 09:41</div></div>
+          <div class="right">
+            <button class="btn sm"><svg class="i"><use href="#i-share"/></svg>공유</button>
+            <button class="btn sm"><svg class="i"><use href="#i-clock"/></svg>이벤터로 등록</button>
+          </div>
+        </div>
+
+        <div class="thread">
+          <div class="thread-inner">
+            <div class="msg user"><div class="bubble">M14 CMP Area 지금 WIP 현황 알려줘</div></div>
+
+            <div class="msg">
+              <div class="who"><div class="mark">F</div>라인 운영<small>· gpt-4o</small></div>
+
+              <details class="trace">
+                <summary><svg class="i check"><use href="#i-check"/></svg>tool 2개 실행 · 1.3s<svg class="i chev"><use href="#i-down"/></svg></summary>
+                <ol>
+                  <li><svg class="i"><use href="#i-tool"/></svg><span class="tag">get_wip_status</span>area_key = "M14 CMP"<span class="ms num">0.8s</span></li>
+                  <li><svg class="i"><use href="#i-tool"/></svg><span class="tag">get_lot_hold_info</span>lot_id = "TE2FE38"<span class="ms num">0.5s</span></li>
+                </ol>
+              </details>
+
+              <div class="answer">
+                <p>M14 CMP 현재 WIP는 <strong>1,284장</strong>이고, 금일 이동 실적은 612 / 1,400입니다. 현재 속도라면 EOD <strong>1,344 (96%)</strong>로 목표에 조금 못 미칩니다.</p>
+                <p>병목은 <strong>W CMP</strong>입니다. CMP-W-03이 DOWN 상태라 대기 WIP가 212장까지 쌓였습니다.</p>
+              </div>
+
+              <div class="viz">
+                <div class="viz-head">
+                  <b>WIP 현황 · M14 CMP</b><span class="pill mute num">14:12 기준</span>
+                  <div class="right"><button class="btn sm"><svg class="i"><use href="#i-dl"/></svg>Excel</button></div>
+                </div>
+                <div class="viz-body">
+                  <div class="mini-kpis">
+                    <div><small>Total WIP</small><b class="num">1,284<em>Run 402 · Queue 882</em></b></div>
+                    <div><small>이동 실적 / 목표</small><b class="num">612<em>/ 1,400</em></b></div>
+                    <div><small>EOD 예상</small><b class="num" style="color:var(--warn)">96%<em>1,344</em></b></div>
+                  </div>
+                  <div style="font-size:12px;color:var(--sub)">Move progress</div>
+                  <div class="progress"><div class="a" style="width:43.7%"></div><div class="p" style="left:43.7%;width:52.3%"></div><div class="t" style="left:99.6%"></div></div>
+                  <div class="prog-legend"><span>실적 612</span><span>예상 +732</span><span>목표 1,400</span></div>
+
+                  <table class="eq-tbl">
+                    <thead><tr><th>공정 그룹</th><th>장비</th><th class="r">WIP</th><th class="r">이동</th><th class="r">가동률</th></tr></thead>
+                    <tbody>
+                      <tr><td>STI CMP</td><td><span class="pill ok">RUN 5</span> <span class="pill mute">IDLE 1</span></td><td class="r num">246</td><td class="r num">148</td><td class="r"><div class="bar-cell num"><i style="width:44px"></i>88%</div></td></tr>
+                      <tr><td>Poly CMP</td><td><span class="pill ok">RUN 4</span> <span class="pill warn">PM 1</span></td><td class="r num">198</td><td class="r num">121</td><td class="r"><div class="bar-cell num"><i style="width:40px"></i>80%</div></td></tr>
+                      <tr><td><b>W CMP</b></td><td><span class="pill ok">RUN 3</span> <span class="pill err">DOWN 1</span></td><td class="r num"><b>412</b></td><td class="r num">96</td><td class="r"><div class="bar-cell num"><i style="width:31px"></i>62%</div></td></tr>
+                      <tr><td>Cu1 CMP</td><td><span class="pill ok">RUN 4</span> <span class="pill err">DOWN 1</span></td><td class="r num">251</td><td class="r num">140</td><td class="r"><div class="bar-cell num"><i style="width:37px"></i>74%</div></td></tr>
+                      <tr><td>Cu2 CMP</td><td><span class="pill ok">RUN 5</span></td><td class="r num">177</td><td class="r num">107</td><td class="r"><div class="bar-cell num"><i style="width:46px"></i>92%</div></td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div class="answer">
+                <table class="md-table">
+                  <thead><tr><th>우선순위</th><th>대상</th><th>조치</th></tr></thead>
+                  <tbody>
+                    <tr><td><span class="pill err">P1</span></td><td>CMP-W-03</td><td>DOWN 복구 — 대기 WIP 212장</td></tr>
+                    <tr><td><span class="pill warn">P2</span></td><td>TE2FE38</td><td>Hold(측정 재검) disposition</td></tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <div class="follow">
+                <button class="chip">M14 CMP 전일 이슈 정리해줘</button>
+                <button class="chip">TE2FE38 Defect Map 보여줘</button>
+                <button class="chip">Equipment 기준 수율 비교</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="chat-foot">
+          <div class="card composer">
+            <textarea placeholder="이어서 질문하세요…"></textarea>
+            <div class="bar">
+              <button class="select">에이전트 <b>라인 운영</b><svg class="i"><use href="#i-down"/></svg></button>
+              <span class="skill-on"><svg class="i"><use href="#i-skill"/></svg>출근 전 라인 점검 ✕</span>
+              <span class="hint">tool 3개로 제한됨</span>
+              <button class="send" aria-label="전송"><svg class="i"><use href="#i-send"/></svg></button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═════════ 스킬 ═════════ -->
+    <section class="screen" id="skills">
+      <div class="page">
+        <div class="page-head">
+          <div><h1>스킬</h1><p>tool 몇 개와 작업 지침을 묶어 저장합니다. 대화와 이벤터에서 바로 불러 쓸 수 있습니다.</p></div>
+          <button class="btn primary"><svg class="i"><use href="#i-plus"/></svg>새 스킬</button>
+        </div>
+
+        <div class="split">
+          <div class="card">
+            <button class="sk-item active"><b>출근 전 라인 점검</b><small>tool 3 · 이번 주 5회 사용</small></button>
+            <button class="sk-item"><b>Defect 원인 추적</b><small>tool 3 · 이번 주 3회</small></button>
+            <button class="sk-item"><b>수율 브리핑</b><small>tool 2 · 이번 주 2회</small></button>
+            <button class="sk-item"><b>Hold Lot 정리</b><small>tool 1 · 사용 기록 없음</small></button>
+          </div>
+
+          <div class="card">
+            <div class="form">
+              <div class="field"><label>이름</label><input class="input" value="출근 전 라인 점검"></div>
+              <div class="field"><label>설명<span>목록과 / 메뉴에 표시됩니다</span></label><input class="input" value="전일 이슈 + 현재 WIP + Open Hold 를 한 번에 정리"></div>
+
+              <div class="field">
+                <label>사용할 tool<span id="tcount">3개 선택</span></label>
+                <div class="tool-group">
+                  <h3>라인 운영</h3>
+                  <div class="tools">
+                    <label class="tool sel"><input type="checkbox" checked><div><b>전일 이슈 리포트</b><code>get_daily_report</code><p>WIP·Hold·Defect·장비 교차 분석</p></div></label>
+                    <label class="tool sel"><input type="checkbox" checked><div><b>WIP 현황</b><code>get_wip_status</code><p>공정 그룹별 WIP·장비·이동 실적</p></div></label>
+                    <label class="tool sel"><input type="checkbox" checked><div><b>Lot Hold 조회</b><code>get_lot_hold_info</code><p>Hold 상태와 원인</p></div></label>
+                  </div>
+                </div>
+                <div class="tool-group">
+                  <h3>Defect</h3>
+                  <div class="tools">
+                    <label class="tool"><input type="checkbox"><div><b>Defect Map</b><code>get_defect_map</code><p>Wafer별 Defect 위치·유형</p></div></label>
+                    <label class="tool"><input type="checkbox"><div><b>Defect Trend</b><code>get_defect_trend</code><p>유형별 Lot 간 발생 추이</p></div></label>
+                    <label class="tool"><input type="checkbox"><div><b>Step 간 Overlay</b><code>get_defect_step_overlay</code><p>이전 step defect carryover 추적</p></div></label>
+                  </div>
+                </div>
+                <div class="tool-group">
+                  <h3>수율 · 계측</h3>
+                  <div class="tools">
+                    <label class="tool"><input type="checkbox"><div><b>수율 Grouping</b><code>analyze_yield_grouping</code><p>Recipe/장비 기준 그룹 비교</p></div></label>
+                    <label class="tool"><input type="checkbox"><div><b>Wafer Map</b><code>get_wafer_map</code><p>Die별 두께 분포</p></div></label>
+                  </div>
+                </div>
+              </div>
+
+              <div class="field">
+                <label>작업 지침<span>LLM 에게 전달되는 절차</span></label>
+                <textarea class="textarea">1. 전일 이슈 리포트로 P1~P2 항목을 먼저 확인한다.
+2. P1 이 장비 DOWN 이면 해당 Area 의 현재 WIP 를 조회해 대기 WIP 를 함께 보고한다.
+3. Open Hold 가 있으면 Lot 별 원인을 표로 정리한다.
+4. 마지막에 오늘 우선 대응 3가지를 한 줄씩 제안한다.</textarea>
+              </div>
+
+              <div class="note"><svg class="i"><use href="#i-info"/></svg><div>이 스킬을 쓰는 동안 에이전트는 선택한 <b>tool 3개</b>만 볼 수 있습니다. 후보가 적을수록 tool을 잘못 고르는 일이 줄어듭니다.</div></div>
+            </div>
+            <div class="form-foot">
+              <button class="btn">삭제</button>
+              <span class="sp"></span>
+              <button class="btn" data-go="chat"><svg class="i"><use href="#i-play"/></svg>대화에서 테스트</button>
+              <button class="btn primary">저장</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═════════ 이벤터 ═════════ -->
+    <section class="screen" id="events">
+      <div class="page">
+        <div class="page-head">
+          <div><h1>이벤터</h1><p>스킬이나 질문을 정해진 시간에 실행하고, 결과를 채널로 공유합니다.</p></div>
+          <button class="btn primary"><svg class="i"><use href="#i-plus"/></svg>스케줄 추가</button>
+        </div>
+
+        <div class="home-grid" style="margin-top:0">
+          <div class="card">
+            <table class="tbl ev-tbl">
+              <thead><tr><th style="width:110px">일정</th><th>작업</th><th style="width:120px">최근 실행</th><th style="width:130px"></th></tr></thead>
+              <tbody>
+                <tr><td class="when num">07:30<small>매일</small></td>
+                  <td><div class="q-title">전일 이슈 리포트</div><div class="q-sub">스킬 · 출근 전 라인 점검 → Cube #CMP-일일현황</div></td>
+                  <td><span class="pill ok">완료 07:31</span></td>
+                  <td><div style="display:flex;gap:8px;align-items:center;justify-content:flex-end"><button class="btn sm"><svg class="i"><use href="#i-play"/></svg>실행</button><button class="toggle on"></button></div></td></tr>
+                <tr><td class="when num">13:00<small>매일</small></td>
+                  <td><div class="q-title">오전 장비 이상 요약</div><div class="q-sub">"M14 CMP 오전 DOWN·PM 장비 정리해줘" → 팀 메일</div></td>
+                  <td><span class="pill mute">다음 13:00</span></td>
+                  <td><div style="display:flex;gap:8px;align-items:center;justify-content:flex-end"><button class="btn sm"><svg class="i"><use href="#i-play"/></svg>실행</button><button class="toggle on"></button></div></td></tr>
+                <tr><td class="when num">17:00<small>매일</small></td>
+                  <td><div class="q-title">WIP EOD 점검</div><div class="q-sub">"EOD 이동 예상과 병목 공정 알려줘" → Cube</div></td>
+                  <td><span class="pill err">실패 09/29</span></td>
+                  <td><div style="display:flex;gap:8px;align-items:center;justify-content:flex-end"><button class="btn sm"><svg class="i"><use href="#i-play"/></svg>실행</button><button class="toggle on"></button></div></td></tr>
+                <tr class="off"><td class="when num">17:00<small>매주 금</small></td>
+                  <td><div class="q-title">주간 수율 브리핑</div><div class="q-sub">스킬 · 수율 브리핑 → PPT 초안</div></td>
+                  <td><span class="pill mute">중지됨</span></td>
+                  <td><div style="display:flex;gap:8px;align-items:center;justify-content:flex-end"><button class="btn sm"><svg class="i"><use href="#i-play"/></svg>실행</button><button class="toggle"></button></div></td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div>
+            <div class="sec-head"><h2>실행 기록</h2></div>
+            <div class="card timeline">
+              <div class="tl"><time class="num">07:31</time><div class="rail-dot"><i class="ok"></i></div><div><b>전일 이슈 리포트</b><small>tool 3회 · 14.2s · Cube 공유 완료</small></div></div>
+              <div class="tl"><time class="num">어제 17:00</time><div class="rail-dot"><i class="err"></i></div><div><b>WIP EOD 점검</b><small>DataHub 응답 지연으로 get_wip_status timeout</small></div></div>
+              <div class="tl"><time class="num">어제 13:00</time><div class="rail-dot"><i class="ok"></i></div><div><b>오전 장비 이상 요약</b><small>DOWN 2 · PM 1 정리 · 메일 발송</small></div></div>
+              <div class="tl"><time class="num">어제 07:30</time><div class="rail-dot"><i class="ok"></i></div><div><b>전일 이슈 리포트</b><small>P1 없음 · Cube 공유 완료</small></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script>
+  // 화면 전환
+  const go = id => {
+    document.querySelectorAll('.screen').forEach(s => s.classList.toggle('on', s.id === id));
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.go === id));
+    document.querySelector('main').scrollTop = 0;
+  };
+  document.addEventListener('click', e => {
+    const t = e.target.closest('[data-go]');
+    if (t) go(t.dataset.go);
+  });
+
+  // 테마 전환
+  const root = document.documentElement, themeBtn = document.getElementById('theme');
+  const isDark = () => root.dataset.theme ? root.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+  const paintIcon = () => themeBtn.querySelector('use').setAttribute('href', isDark() ? '#i-sun' : '#i-moon');
+  try { const saved = localStorage.getItem('hub-theme'); if (saved) root.dataset.theme = saved; } catch {}
+  paintIcon();
+  themeBtn.addEventListener('click', () => {
+    root.dataset.theme = isDark() ? 'light' : 'dark';
+    try { localStorage.setItem('hub-theme', root.dataset.theme); } catch {}
+    paintIcon();
+  });
+
+  // 이벤터 토글
+  document.querySelectorAll('.toggle').forEach(t => t.addEventListener('click', () => {
+    t.classList.toggle('on');
+    t.closest('tr').classList.toggle('off', !t.classList.contains('on'));
+  }));
+
+  // 스킬 tool 선택
+  const tools = document.querySelectorAll('.tool input');
+  tools.forEach(cb => cb.addEventListener('change', () => {
+    cb.closest('.tool').classList.toggle('sel', cb.checked);
+    const n = [...tools].filter(x => x.checked).length;
+    document.getElementById('tcount').textContent = `${n}개 선택`;
+    document.querySelector('.note b').textContent = `tool ${n}개`;
+  }));
+</script>
+</body>
+</html>

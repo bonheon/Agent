@@ -44,7 +44,7 @@ interface AnalysisResult {
 
 // ── Color palette for groups ───────────────────────────────────────────────────
 
-const GROUP_COLORS = ["#3b82f6", "#22c55e", "#f59e0b", "#a855f7", "#ef4444", "#06b6d4"];
+const GROUP_COLORS = ["var(--c-blue)", "var(--c-green)", "var(--c-amber)", "var(--c-purple)", "var(--c-red)", "#06b6d4"];
 
 const getColor = (idx: number) => GROUP_COLORS[idx % GROUP_COLORS.length];
 
@@ -68,15 +68,15 @@ const ChartTooltip = ({ active, payload, label, paramLabel }: any) => {
   const d = payload[0].payload;
   return (
     <div style={{
-      background: "#1e293b", border: "1px solid #334155",
+      background: "var(--sand)", border: "1px solid var(--line-strong)",
       borderRadius: 8, padding: "10px 14px", fontSize: 12,
     }}>
-      <div style={{ color: "#94a3b8", marginBottom: 4 }}>{label}</div>
-      <div style={{ color: "#e2e8f0", fontWeight: 700 }}>{paramLabel}</div>
-      <div style={{ color: "#60a5fa" }}>Mean: <b>{d.mean?.toFixed(2)}%</b></div>
-      <div style={{ color: "#94a3b8" }}>±Std: {d.std?.toFixed(2)}</div>
-      <div style={{ color: "#94a3b8" }}>Min: {d.min?.toFixed(2)} / Max: {d.max?.toFixed(2)}</div>
-      <div style={{ color: "#94a3b8" }}>N = {d.count}</div>
+      <div style={{ color: "var(--sub)", marginBottom: 4 }}>{label}</div>
+      <div style={{ color: "var(--ink)", fontWeight: 700 }}>{paramLabel}</div>
+      <div style={{ color: "var(--c-sky)" }}>Mean: <b>{d.mean?.toFixed(2)}%</b></div>
+      <div style={{ color: "var(--sub)" }}>±Std: {d.std?.toFixed(2)}</div>
+      <div style={{ color: "var(--sub)" }}>Min: {d.min?.toFixed(2)} / Max: {d.max?.toFixed(2)}</div>
+      <div style={{ color: "var(--sub)" }}>N = {d.count}</div>
     </div>
   );
 };
@@ -107,11 +107,11 @@ function ParamChart({ param, groups }: { param: ParamMeta; groups: AnalysisGroup
       </div>
       <ResponsiveContainer width="100%" height={220}>
         <BarChart data={data} margin={{ top: 8, right: 16, left: 0, bottom: 4 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
-          <XAxis dataKey="name" tick={{ fill: "#94a3b8", fontSize: 11 }} axisLine={false} tickLine={false} />
+          <CartesianGrid strokeDasharray="3 3" stroke="var(--sand)" vertical={false} />
+          <XAxis dataKey="name" tick={{ fill: "var(--sub)", fontSize: 11 }} axisLine={false} tickLine={false} />
           <YAxis
             domain={[yMin, yMax]}
-            tick={{ fill: "#94a3b8", fontSize: 10 }}
+            tick={{ fill: "var(--sub)", fontSize: 10 }}
             axisLine={false}
             tickLine={false}
             width={38}
@@ -144,10 +144,10 @@ function StatsTable({ result, paramsMeta }: { result: AnalysisResult; paramsMeta
     <div className="ya-table-section">
       <div className="ya-section-header" onClick={() => setCollapsed((v) => !v)} style={{ cursor: "pointer" }}>
         <span>Summary Statistics</span>
-        <span style={{ color: "#94a3b8", fontSize: 12 }}>
+        <span style={{ color: "var(--sub)", fontSize: 12 }}>
           {result.total_wafers} wafers · {result.groups.length} groups
         </span>
-        {collapsed ? <ChevronDown size={16} color="#94a3b8" /> : <ChevronUp size={16} color="#94a3b8" />}
+        {collapsed ? <ChevronDown size={16} color="var(--sub)" /> : <ChevronUp size={16} color="var(--sub)" />}
       </div>
       {!collapsed && (
         <div style={{ overflowX: "auto" }}>
@@ -186,9 +186,9 @@ function StatsTable({ result, paramsMeta }: { result: AnalysisResult; paramsMeta
                     return s ? (
                       <React.Fragment key={p.key}>
                         <td style={{ background: bg, fontWeight: 600 }}>{s.mean.toFixed(2)}</td>
-                        <td style={{ color: "#94a3b8" }}>{s.std.toFixed(2)}</td>
-                        <td style={{ color: "#64748b" }}>{s.min.toFixed(2)}</td>
-                        <td style={{ color: "#64748b" }}>{s.max.toFixed(2)}</td>
+                        <td style={{ color: "var(--sub)" }}>{s.std.toFixed(2)}</td>
+                        <td style={{ color: "var(--faint)" }}>{s.min.toFixed(2)}</td>
+                        <td style={{ color: "var(--faint)" }}>{s.max.toFixed(2)}</td>
                       </React.Fragment>
                     ) : (
                       <React.Fragment key={p.key}>

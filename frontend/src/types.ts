@@ -1,9 +1,13 @@
+import type { ToolRun } from "./api";
+
 export interface Message {
   id: string;
   role: "user" | "assistant";
   content: string;
-  timestamp: Date;
-  streaming?: boolean; // true이면 plain text 렌더링, false/undefined이면 마크다운 렌더링
+  at: string;              // ISO 시각
+  streaming?: boolean;     // true 동안 마크다운 파싱 생략 (plain text)
+  tools?: ToolRun[];       // 이 응답을 만들며 실행한 tool
+  error?: string;
 }
 
 export interface WaferDie {

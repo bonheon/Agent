@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from "react";
+import { alpha } from "../lib/color";
 import { DefectStepOverlayPayload, ProcessStep, StepDefectPoint, CarryoverCluster } from "../types";
 
 const CX = 150, CY = 150, R = 133;
 
 // Step별 색상 (order 1~4)
-const STEP_COLORS = ["#60a5fa", "#fbbf24", "#34d399", "#f87171"];
+const STEP_COLORS = ["var(--c-sky)", "var(--warn)", "var(--ok)", "var(--err)"];
 // 현재 step(4번째)은 더 진하게
-const STEP_COLORS_BRIGHT = ["#93c5fd", "#fde68a", "#6ee7b7", "#fca5a5"];
+const STEP_COLORS_BRIGHT = ["var(--c-sky)", "var(--warn)", "var(--ok)", "var(--err)"];
 
 function stepColor(order: number, bright = false): string {
   const arr = bright ? STEP_COLORS_BRIGHT : STEP_COLORS;
@@ -125,8 +126,8 @@ export default function DefectStepOverlay({ data }: Props) {
   return (
     <div
       style={{
-        background: "#0f172a",
-        border: "1px solid #334155",
+        background: "var(--sunken)",
+        border: "1px solid var(--line-strong)",
         borderRadius: 12,
         padding: 16,
         marginTop: 12,
@@ -135,17 +136,17 @@ export default function DefectStepOverlay({ data }: Props) {
       {/* Header */}
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12, flexWrap: "wrap" }}>
         <div>
-          <span style={{ fontSize: 13, fontWeight: 700, color: "#f1f5f9" }}>
+          <span style={{ fontSize: 13, fontWeight: 700, color: "var(--ink)" }}>
             Step 간 Defect Overlay
           </span>
-          <span style={{ fontSize: 11, color: "#64748b", marginLeft: 10 }}>
-            Lot: <strong style={{ color: "#e2e8f0" }}>{data.lot_id}</strong>
-            {"  "}Wafer <strong style={{ color: "#e2e8f0" }}>{data.wafer_no}</strong>
+          <span style={{ fontSize: 11, color: "var(--faint)", marginLeft: 10 }}>
+            Lot: <strong style={{ color: "var(--ink)" }}>{data.lot_id}</strong>
+            {"  "}Wafer <strong style={{ color: "var(--ink)" }}>{data.wafer_no}</strong>
           </span>
         </div>
         <div style={{ marginLeft: "auto", display: "flex", gap: 6, flexWrap: "wrap" }}>
-          <span style={{ fontSize: 11, color: "#94a3b8" }}>
-            Carryover: <strong style={{ color: "#f59e0b" }}>{data.carryover_clusters.length}건</strong>
+          <span style={{ fontSize: 11, color: "var(--sub)" }}>
+            Carryover: <strong style={{ color: "var(--c-amber)" }}>{data.carryover_clusters.length}건</strong>
           </span>
         </div>
       </div>
@@ -163,8 +164,8 @@ export default function DefectStepOverlay({ data }: Props) {
                 padding: "3px 11px",
                 borderRadius: 12,
                 border: `1px solid ${col}`,
-                background: active ? col + "22" : "transparent",
-                color: active ? col : "#475569",
+                background: active ? alpha(col, "22") : "transparent",
+                color: active ? col : "var(--faint)",
                 cursor: "pointer",
                 fontSize: 11,
                 fontWeight: active ? 700 : 400,
@@ -185,9 +186,9 @@ export default function DefectStepOverlay({ data }: Props) {
           style={{
             padding: "3px 11px",
             borderRadius: 12,
-            border: `1px solid ${carryoverOnly ? "#f59e0b" : "#334155"}`,
-            background: carryoverOnly ? "#f59e0b22" : "transparent",
-            color: carryoverOnly ? "#f59e0b" : "#64748b",
+            border: `1px solid ${carryoverOnly ? "var(--c-amber)" : "var(--line-strong)"}`,
+            background: carryoverOnly ? "color-mix(in srgb, var(--c-amber) 13%, transparent)" : "transparent",
+            color: carryoverOnly ? "var(--c-amber)" : "var(--faint)",
             cursor: "pointer",
             fontSize: 11,
             fontWeight: carryoverOnly ? 700 : 400,
@@ -203,9 +204,9 @@ export default function DefectStepOverlay({ data }: Props) {
           style={{
             padding: "3px 11px",
             borderRadius: 12,
-            border: `1px solid ${showLines ? "#a78bfa" : "#334155"}`,
-            background: showLines ? "#a78bfa22" : "transparent",
-            color: showLines ? "#a78bfa" : "#64748b",
+            border: `1px solid ${showLines ? "var(--c-purple)" : "var(--line-strong)"}`,
+            background: showLines ? "color-mix(in srgb, var(--c-purple) 13%, transparent)" : "transparent",
+            color: showLines ? "var(--c-purple)" : "var(--faint)",
             cursor: "pointer",
             fontSize: 11,
             transition: "all 0.15s",
@@ -223,8 +224,8 @@ export default function DefectStepOverlay({ data }: Props) {
         >
           <defs>
             <radialGradient id="so-bg" cx="38%" cy="32%">
-              <stop offset="0%" stopColor="#1a1a35" />
-              <stop offset="100%" stopColor="#080814" />
+              <stop offset="0%" stopColor="var(--sunken)" />
+              <stop offset="100%" stopColor="var(--sunken)" />
             </radialGradient>
             <clipPath id="so-clip">
               <circle cx={CX} cy={CY} r={R - 1} />
@@ -232,7 +233,7 @@ export default function DefectStepOverlay({ data }: Props) {
           </defs>
 
           {/* Wafer base */}
-          <circle cx={CX} cy={CY} r={R} fill="url(#so-bg)" stroke="#475569" strokeWidth={2} />
+          <circle cx={CX} cy={CY} r={R} fill="url(#so-bg)" stroke="var(--faint)" strokeWidth={2} />
 
           {/* Die grid */}
           <g clipPath="url(#so-clip)" opacity={0.10}>
@@ -253,7 +254,7 @@ export default function DefectStepOverlay({ data }: Props) {
                 key={i}
                 x1={prev.x} y1={prev.y}
                 x2={pos.x}  y2={pos.y}
-                stroke="#a78bfa"
+                stroke="var(--c-purple)"
                 strokeWidth={1.2}
                 strokeDasharray="4 3"
                 opacity={0.7}
@@ -299,7 +300,7 @@ export default function DefectStepOverlay({ data }: Props) {
                           cx={svgX} cy={svgY}
                           r={dotR + 5}
                           fill="none"
-                          stroke={isClicked ? "#fff" : "#a78bfa"}
+                          stroke={isClicked ? "#fff" : "var(--c-purple)"}
                           strokeWidth={1.5}
                           opacity={0.8}
                         />
@@ -329,9 +330,9 @@ export default function DefectStepOverlay({ data }: Props) {
             })}
 
           {/* Wafer outline + notch */}
-          <circle cx={CX} cy={CY} r={R} fill="none" stroke="#94a3b8" strokeWidth={1.5} />
+          <circle cx={CX} cy={CY} r={R} fill="none" stroke="var(--sub)" strokeWidth={1.5} />
           <path d={`M ${CX - 8} ${CY + R + 1} Q ${CX} ${CY + R - 5} ${CX + 8} ${CY + R + 1}`}
-            fill="#050510" stroke="#94a3b8" strokeWidth={1} />
+            fill="var(--sunken)" stroke="var(--sub)" strokeWidth={1} />
         </svg>
 
         {/* Right panel: clicked defect info OR step summary */}
@@ -364,15 +365,15 @@ export default function DefectStepOverlay({ data }: Props) {
         ))}
         <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
           <svg width={14} height={14}>
-            <circle cx={7} cy={7} r={5} fill="none" stroke="#94a3b8" strokeWidth={0.8} strokeDasharray="2 2" />
-            <circle cx={7} cy={7} r={2} fill="#94a3b8" />
+            <circle cx={7} cy={7} r={5} fill="none" stroke="var(--sub)" strokeWidth={0.8} strokeDasharray="2 2" />
+            <circle cx={7} cy={7} r={2} fill="var(--sub)" />
           </svg>
-          <span style={{ fontSize: 11, color: "#94a3b8" }}>Carryover</span>
+          <span style={{ fontSize: 11, color: "var(--sub)" }}>Carryover</span>
         </div>
       </div>
 
       {!clicked && (
-        <div style={{ marginTop: 8, fontSize: 11, color: "#475569" }}>
+        <div style={{ marginTop: 8, fontSize: 11, color: "var(--faint)" }}>
           ↑ defect 점 클릭 시 step별 이력 추적 · carryover 연결선이 표시됩니다
         </div>
       )}
@@ -391,13 +392,13 @@ function ClickedPanel({
   onClose: () => void;
 }) {
   const { defect, step, cluster } = clicked;
-  const col = stepColors[step.step_name] ?? "#94a3b8";
+  const col = stepColors[step.step_name] ?? "var(--sub)";
 
   return (
     <div
       style={{
-        background: "#0c1220",
-        border: `1px solid ${col}44`,
+        background: "var(--sunken)",
+        border: `1px solid ${alpha(col, "44")}`,
         borderRadius: 10,
         padding: 14,
       }}
@@ -408,7 +409,7 @@ function ClickedPanel({
         </span>
         <span
           onClick={onClose}
-          style={{ cursor: "pointer", color: "#475569", fontSize: 13 }}
+          style={{ cursor: "pointer", color: "var(--faint)", fontSize: 13 }}
         >
           ✕
         </span>
@@ -423,8 +424,8 @@ function ClickedPanel({
           ["Die",  `R${defect.die_row} C${defect.die_col}`],
         ].map(([label, val]) => (
           <div key={label}>
-            <span style={{ color: "#64748b", display: "inline-block", width: 38 }}>{label}</span>
-            <span style={{ color: "#e2e8f0" }}>{val}</span>
+            <span style={{ color: "var(--faint)", display: "inline-block", width: 38 }}>{label}</span>
+            <span style={{ color: "var(--ink)" }}>{val}</span>
           </div>
         ))}
       </div>
@@ -432,14 +433,14 @@ function ClickedPanel({
       {/* Carryover 추적 */}
       {cluster ? (
         <>
-          <div style={{ fontSize: 11, color: "#f59e0b", fontWeight: 700, marginBottom: 6 }}>
+          <div style={{ fontSize: 11, color: "var(--c-amber)", fontWeight: 700, marginBottom: 6 }}>
             Carryover 추적 ({Object.keys(cluster.appearances).length}개 step)
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
             {data.steps.map((s) => {
               const app = cluster.appearances[s.step_name];
               if (!app) return null;
-              const c = stepColors[s.step_name] ?? "#94a3b8";
+              const c = stepColors[s.step_name] ?? "var(--sub)";
               const isCurrent = s.is_current;
               return (
                 <div
@@ -450,8 +451,8 @@ function ClickedPanel({
                     gap: 8,
                     padding: "4px 8px",
                     borderRadius: 6,
-                    background: s.step_name === step.step_name ? c + "22" : "#1e293b",
-                    border: `1px solid ${s.step_name === step.step_name ? c + "66" : "#1e293b"}`,
+                    background: s.step_name === step.step_name ? alpha(c, "22") : "var(--sand)",
+                    border: `1px solid ${s.step_name === step.step_name ? alpha(c, "66") : "var(--sand)"}`,
                   }}
                 >
                   <svg width={10} height={10} style={{ flexShrink: 0 }}>
@@ -463,7 +464,7 @@ function ClickedPanel({
                   <span
                     style={{
                       fontSize: 10,
-                      background: c + "33",
+                      background: alpha(c, "33"),
                       color: c,
                       borderRadius: 4,
                       padding: "1px 6px",
@@ -475,12 +476,12 @@ function ClickedPanel({
               );
             })}
           </div>
-          <div style={{ fontSize: 10, color: "#475569", marginTop: 8 }}>
+          <div style={{ fontSize: 10, color: "var(--faint)", marginTop: 8 }}>
             ↑ 동일 위치 근방에서 발생한 연속 carryover defect
           </div>
         </>
       ) : (
-        <div style={{ fontSize: 11, color: "#475569" }}>
+        <div style={{ fontSize: 11, color: "var(--faint)" }}>
           이 step에서 새로 발생한 defect (carryover 없음)
         </div>
       )}
@@ -498,14 +499,14 @@ function StepSummaryPanel({
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
       {data.steps.map((step) => {
-        const col = stepColors[step.step_name] ?? "#94a3b8";
+        const col = stepColors[step.step_name] ?? "var(--sub)";
         const carryoverCount = step.defects.filter((d) => d.carryover_id !== null).length;
         return (
           <div
             key={step.step_name}
             style={{
-              background: "#1e293b",
-              border: `1px solid ${col}33`,
+              background: "var(--sand)",
+              border: `1px solid ${alpha(col, "33")}`,
               borderLeft: `3px solid ${col}`,
               borderRadius: 8,
               padding: "8px 12px",
@@ -518,7 +519,7 @@ function StepSummaryPanel({
                   <span
                     style={{
                       fontSize: 9,
-                      background: col + "33",
+                      background: alpha(col, "33"),
                       color: col,
                       borderRadius: 4,
                       padding: "1px 5px",
@@ -529,13 +530,13 @@ function StepSummaryPanel({
                   </span>
                 )}
               </span>
-              <span style={{ fontSize: 11, color: "#e2e8f0" }}>
+              <span style={{ fontSize: 11, color: "var(--ink)" }}>
                 {step.defect_count}건
               </span>
             </div>
-            <div style={{ fontSize: 10, color: "#64748b", marginTop: 2 }}>{step.step_desc}</div>
+            <div style={{ fontSize: 10, color: "var(--faint)", marginTop: 2 }}>{step.step_desc}</div>
             {carryoverCount > 0 && (
-              <div style={{ fontSize: 10, color: "#f59e0b", marginTop: 3 }}>
+              <div style={{ fontSize: 10, color: "var(--c-amber)", marginTop: 3 }}>
                 carryover {carryoverCount}건 포함
               </div>
             )}

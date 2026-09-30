@@ -37,11 +37,11 @@ export default function WaferMap({ data }: Props) {
 
   return (
     <div className="wafer-map-container">
-      <h3 style={{ margin: "0 0 8px", fontSize: 14, color: "#94a3b8" }}>
+      <h3 style={{ margin: "0 0 8px", fontSize: 14, color: "var(--sub)" }}>
         Wafer Map — Lot:{" "}
-        <strong style={{ color: "#e2e8f0" }}>{data.lot_id}</strong>
+        <strong style={{ color: "var(--ink)" }}>{data.lot_id}</strong>
         {"  "}|{"  "}Avg Thickness:{" "}
-        <strong style={{ color: "#38bdf8" }}>{wafer.avg_thickness} Å</strong>
+        <strong style={{ color: "var(--c-sky)" }}>{wafer.avg_thickness} Å</strong>
       </h3>
 
       {/* Wafer selector tabs */}
@@ -56,9 +56,9 @@ export default function WaferMap({ data }: Props) {
               borderRadius: 4,
               border: "1px solid",
               cursor: "pointer",
-              background: sel === i ? "#3b82f6" : "transparent",
-              borderColor: sel === i ? "#3b82f6" : "#475569",
-              color: sel === i ? "#fff" : "#94a3b8",
+              background: sel === i ? "var(--c-blue)" : "transparent",
+              borderColor: sel === i ? "var(--c-blue)" : "var(--faint)",
+              color: sel === i ? "#fff" : "var(--sub)",
             }}
           >
             W{w.wafer_no}
@@ -79,8 +79,8 @@ export default function WaferMap({ data }: Props) {
 
           {/* Subtle radial background for silicon look */}
           <radialGradient id={bgId} cx="38%" cy="32%">
-            <stop offset="0%" stopColor="#252545" />
-            <stop offset="100%" stopColor="#0c0c1e" />
+            <stop offset="0%" stopColor="var(--sunken)" />
+            <stop offset="100%" stopColor="var(--sunken)" />
           </radialGradient>
 
           {/* Color scale gradient: top=red(thick), bottom=blue(thin) */}
@@ -95,7 +95,7 @@ export default function WaferMap({ data }: Props) {
         <circle
           cx={CX} cy={CY} r={WAFER_R}
           fill={`url(#${bgId})`}
-          stroke="#475569"
+          stroke="var(--faint)"
           strokeWidth={2}
         />
 
@@ -120,7 +120,7 @@ export default function WaferMap({ data }: Props) {
         <circle
           cx={CX} cy={CY} r={WAFER_R}
           fill="none"
-          stroke="#94a3b8"
+          stroke="var(--sub)"
           strokeWidth={1.5}
         />
 
@@ -129,8 +129,8 @@ export default function WaferMap({ data }: Props) {
           d={`M ${CX - 9} ${CY + WAFER_R + 1}
               Q ${CX} ${CY + WAFER_R - 6}
               ${CX + 9} ${CY + WAFER_R + 1}`}
-          fill="#0a0a18"
-          stroke="#94a3b8"
+          fill="var(--sunken)"
+          stroke="var(--sub)"
           strokeWidth={1}
         />
 
@@ -138,24 +138,24 @@ export default function WaferMap({ data }: Props) {
         {/* Bar */}
         <rect x={305} y={25} width={20} height={250} fill={`url(#${gradId})`} rx={3} />
         {/* Tick lines */}
-        <line x1={305} y1={25}  x2={301} y2={25}  stroke="#64748b" strokeWidth={1} />
-        <line x1={305} y1={150} x2={301} y2={150} stroke="#64748b" strokeWidth={1} />
-        <line x1={305} y1={275} x2={301} y2={275} stroke="#64748b" strokeWidth={1} />
+        <line x1={305} y1={25}  x2={301} y2={25}  stroke="var(--faint)" strokeWidth={1} />
+        <line x1={305} y1={150} x2={301} y2={150} stroke="var(--faint)" strokeWidth={1} />
+        <line x1={305} y1={275} x2={301} y2={275} stroke="var(--faint)" strokeWidth={1} />
         {/* Labels */}
-        <text x={298} y={25}  textAnchor="end" dominantBaseline="middle" fill="#e2e8f0" fontSize={10}>
+        <text x={298} y={25}  textAnchor="end" dominantBaseline="middle" fill="var(--ink)" fontSize={10}>
           {tMax.toFixed(0)}
         </text>
-        <text x={298} y={150} textAnchor="end" dominantBaseline="middle" fill="#e2e8f0" fontSize={10}>
+        <text x={298} y={150} textAnchor="end" dominantBaseline="middle" fill="var(--ink)" fontSize={10}>
           {tMid}
         </text>
-        <text x={298} y={275} textAnchor="end" dominantBaseline="middle" fill="#e2e8f0" fontSize={10}>
+        <text x={298} y={275} textAnchor="end" dominantBaseline="middle" fill="var(--ink)" fontSize={10}>
           {tMin.toFixed(0)}
         </text>
         {/* Unit label */}
-        <text x={315} y={285} textAnchor="middle" fill="#64748b" fontSize={9}>Å</text>
+        <text x={315} y={285} textAnchor="middle" fill="var(--faint)" fontSize={9}>Å</text>
         {/* Thick / Thin */}
-        <text x={315} y={14}  textAnchor="middle" fill="#94a3b8" fontSize={9}>Thick</text>
-        <text x={315} y={295} textAnchor="middle" fill="#94a3b8" fontSize={9}>Thin</text>
+        <text x={315} y={14}  textAnchor="middle" fill="var(--sub)" fontSize={9}>Thick</text>
+        <text x={315} y={295} textAnchor="middle" fill="var(--sub)" fontSize={9}>Thin</text>
       </svg>
     </div>
   );
