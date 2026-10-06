@@ -5,13 +5,17 @@ POST /api/chat — SSE 스트리밍.
   {"type": "meta", "conversation_id"}          첫 이벤트
   {"type": "user", "user_id", "name", "memory_chars", "memory_version"}   불러온 사용자 메모리
   {"type": "route", "agent_id", "agent_name", "route_mode", "route_reason",
-   "tools", "locked", "dropped", "warnings"}    분기 결과 · 이번 턴에 켜진 tool
+   "tools", "locked", "dropped", "warnings",
+   "skill_id", "skill_name", "skill_mode"}       분기 결과 · 이번 턴에 켜진 tool · 적용된 skill
   {"type": "tool_start", "id", "name", "args"}
   {"type": "tool_end", "id", "name", "ms", "ok"}
   {"type": "delta", "delta"}                   텍스트 토큰
   {"type": "error", "message"}
   [DONE]
 응답이 끝나면 대화가 hub 저장소에 기록되고, 사용자 메모리(md)가 백그라운드로 갱신된다.
+
+프론트는 텍스트만 보내므로, 저장된 대화에서 같은 답변을 찾아 그 턴의 tool 호출 · 결과(trace)를
+붙여 agent 에 넘긴다 — 후속 질문에서 앞서 조회한 데이터를 그대로 쓰게 하기 위함.
 """
 import json
 import logging
@@ -24,7 +28,7 @@ from pydantic import BaseModel
 
 import agent
 from db import user_store
-from hub import memory, service, store
+from hub import memory, service, skills, store
 from hub.users import current_user
 from hub.routing import ToolSelection, resolve
 
@@ -45,6 +49,14 @@ class ChatRequest(BaseModel):
     tool_selection: Optional[ToolSelection] = None
 
 
+def _attach_traces(messages: list[dict], conv: Optional[dict]) -> list[dict]:
+    if not conv:
+        return messages
+    traces = {m["content"]: m["trace"] for m in conv["messages"] if m["role"] == "assistant" and m.get("trace")}
+    return [m | {"trace": traces[m["content"]]} if m["role"] == "assistant" and m["content"] in traces else m
+            for m in messages]
+
+
 def _sse(payload) -> str:
     return f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
 
@@ -56,7 +68,9 @@ async def chat(req: ChatRequest, user: dict = Depends(current_user)):
     user_text = next((m["content"] for m in reversed(messages) if m["role"] == "user"), "")
     conv = store.get_item("conversations", req.conversation_id) if req.conversation_id else None
     prev_agent = conv.get("routed_agent") if conv else None
-    skill = store.get_item("skills", req.skill_id) if req.skill_id else None
+    prev_skill = conv.get("routed_skill") if conv else None
+    messages = _attach_traces(messages, conv)
+    skill = skills.get_item(req.skill_id)
     mem = user_store.get_memory(user["user_id"])
 
     async def generate():
@@ -66,14 +80,19 @@ async def chat(req: ChatRequest, user: dict = Depends(current_user)):
                     "memory_version": mem["version"] if mem else 0})
         text: list[str] = []
         runs: dict[str, dict] = {}
+        trace: list[dict] = []
         plan = None
         try:
-            plan = await resolve(messages, req.agent_id, skill, req.tool_selection, prev_agent)
+            plan = await resolve(messages, req.agent_id, skill, req.tool_selection, prev_agent, prev_skill)
             yield _sse(plan.event())
-            async for ev in agent.stream(messages, plan, skill, memory.for_prompt(mem["content"] if mem else None)):
+            applied = skill or skills.get_item(plan.skill_id)  # Router 가 고른 skill 포함
+            async for ev in agent.stream(messages, plan, applied, memory.for_prompt(mem["content"] if mem else None)):
                 if ev["type"] == "delta":
                     text.append(ev["text"])
                     yield _sse({"type": "delta", "delta": ev["text"]})
+                    continue
+                if ev["type"] == "trace":  # 저장용 — 화면에는 보내지 않는다
+                    trace = ev["trace"]
                     continue
                 if ev["type"] == "tool_start":
                     runs[ev["id"]] = {"name": ev["name"], "args": ev["args"], "ms": None, "ok": None}
@@ -87,7 +106,8 @@ async def chat(req: ChatRequest, user: dict = Depends(current_user)):
             if text or runs:
                 service.save_turn(conv_id, user_text, "".join(text), list(runs.values()),
                                   req.agent_id, req.skill_id, routed_agent=plan.agent_id if plan else None,
-                                  route=plan.summary() if plan else None, user_id=user["user_id"])
+                                  routed_skill=plan.skill_id if plan else None,
+                                  route=plan.summary() if plan else None, user_id=user["user_id"], trace=trace)
                 memory.schedule_update(user, user_text, "".join(text), list(runs.values()), date.today().isoformat())
         yield "data: [DONE]\n\n"
 

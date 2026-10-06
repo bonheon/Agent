@@ -11,11 +11,11 @@ from pathlib import Path
 import yaml
 
 from hub import mcp_registry
-from tools.wip_tools import list_supported_areas
 
 log = logging.getLogger("catalog")
 
 CATALOG_PATH = Path(__file__).resolve().parent / "catalog.yaml"
+GUIDES_PATH = Path(__file__).resolve().parent / "tool_guides.yaml"
 AUTO = "auto"
 
 
@@ -37,12 +37,29 @@ TOOL_LABELS: dict[str, str] = {
     "get_defect_yield_history": "Defect 수율 이력",
     "analyze_yield_grouping":   "수율 Grouping",
     "get_wafer_map":            "Wafer Map",
+    # ceeria MCP
+    "get_lot_info":             "Lot 현재 상태",
+    "get_lot_history":          "Lot 이동 이력",
+    "get_hold_list":            "Hold 상세",
+    "get_eq_status":            "설비 상태",
+    "get_wip_summary":          "재공 집계",
+    "get_part_inventory":       "Part 재고",
+    "search_knowledge":         "지식베이스 검색",
+    "get_process_context":      "공정 컨텍스트",
+    "get_insp_map":             "INSP Map",
+    "get_review_images":        "Review 이미지",
+    "get_pm_history":           "PM 이력",
+    "get_step_trend":           "Step 검사 추이",
+    "get_insp_map_history":     "INSP Map 이력",
+    "get_eq_insp_coverage":     "장비 검사 커버리지",
+    "get_mcrs_issues":          "MCRS 이슈",
+    "compare_pm_effect":        "PM 전후 비교",
 }
 
 
-def _load_catalog() -> tuple[list[dict], list[dict]]:
+def _load_catalog() -> tuple[list[dict], list[dict], set[str]]:
     raw = yaml.safe_load(CATALOG_PATH.read_text(encoding="utf-8"))
-    groups, agents = raw["groups"], raw["agents"]
+    groups, agents, ui_tools = raw["groups"], raw["agents"], set(raw.get("ui_tools") or [])
     group_ids = {g["id"] for g in groups}
     for a in agents:
         for gid in a["allowed_groups"] + a["default_groups"]:
@@ -50,10 +67,13 @@ def _load_catalog() -> tuple[list[dict], list[dict]]:
                 raise ValueError(f"agent '{a['id']}': unknown group '{gid}'")
         if not set(a["default_groups"]) <= set(a["allowed_groups"]):
             raise ValueError(f"agent '{a['id']}': default_groups 는 allowed_groups 안에 있어야 함")
-    return groups, agents
+    in_group = {n for g in groups for n in g["tools"]} & ui_tools
+    if in_group:
+        raise ValueError(f"화면 전용 tool 은 group 에 넣을 수 없음 (LLM 에 묶이면 안 됨): {', '.join(sorted(in_group))}")
+    return groups, agents, ui_tools
 
 
-GROUPS, AGENTS = _load_catalog()
+GROUPS, AGENTS, UI_TOOLS = _load_catalog()
 GROUPS_BY_ID = {g["id"]: g for g in GROUPS}
 AGENTS_BY_ID = {a["id"]: a for a in AGENTS}
 FALLBACK_AGENT = AGENTS[0]["id"]
@@ -67,6 +87,12 @@ for _g in GROUPS:
 
 GROUPED_TOOLS = list(dict.fromkeys(n for g in GROUPS for n in g["tools"]))
 
+# tool 이름 → 프롬프트 안내 (차트 태그 · 결과 정리 방식). 켜진 tool 것만 프롬프트에 붙는다.
+TOOL_GUIDES: dict[str, str] = yaml.safe_load(GUIDES_PATH.read_text(encoding="utf-8")) or {}
+_unknown_guides = [n for n in TOOL_GUIDES if n not in _GROUP_OF]
+if _unknown_guides:
+    log.warning("tool_guides.yaml 에 group 에 없는 tool 이 있음 — 프롬프트에 붙지 않음: %s", ", ".join(_unknown_guides))
+
 
 def _check_tools() -> None:
     """yaml 과 MCP 가 어긋나면 기동은 하되 경고를 남긴다."""
@@ -74,7 +100,10 @@ def _check_tools() -> None:
     missing = [n for n in GROUPED_TOOLS if n not in TOOLS_BY_NAME]
     if missing:
         log.warning("catalog.yaml 의 tool %d개를 MCP 에서 찾지 못함 — 사용 불가로 취급: %s", len(missing), ", ".join(missing))
-    ungrouped = [n for n in TOOLS_BY_NAME if n not in _GROUP_OF]
+    ui_missing = sorted(n for n in UI_TOOLS if n not in TOOLS_BY_NAME)
+    if ui_missing:
+        log.warning("화면 전용 tool %d개를 MCP 에서 찾지 못함 — 해당 차트/대시보드 API 는 503: %s", len(ui_missing), ", ".join(ui_missing))
+    ungrouped = [n for n in TOOLS_BY_NAME if n not in _GROUP_OF and n not in UI_TOOLS]
     if ungrouped:
         log.warning("어떤 group 에도 없는 MCP tool — agent 가 쓰려면 catalog.yaml 에 추가: %s", ", ".join(ungrouped))
 
@@ -143,18 +172,26 @@ def _agent_view(a: dict) -> dict:
     }
 
 
-def meta() -> dict:
+async def _areas() -> list[str]:
+    from hub.mcp_data import call  # 순환 import 방지 — mcp_data 가 catalog 를 쓴다
+    try:
+        return await call("ui_wip_areas")
+    except Exception:  # noqa: BLE001 — area 목록이 없어도 meta 는 나가야 한다
+        return []
+
+
+async def meta() -> dict:
     auto = {
         "id": AUTO, "name": "자동 선택", "description": "질문을 보고 agent 를 고릅니다",
         "tools": GROUPED_TOOLS, "allowed_groups": [g["id"] for g in GROUPS], "default_groups": [],
     }
     # 그룹에 없는 MCP tool 도 보여준다 (group=None, "기타") — catalog.yaml 에 추가하라는 신호
-    names = GROUPED_TOOLS + [n for n in TOOLS_BY_NAME if n not in _GROUP_OF]
+    names = GROUPED_TOOLS + [n for n in TOOLS_BY_NAME if n not in _GROUP_OF and n not in UI_TOOLS]
     return {
         "agents": [auto] + [_agent_view(a) for a in AGENTS],
         "groups": GROUPS,
         "tools": [tool_info(n) for n in names],
-        "areas": list_supported_areas(),
+        "areas": await _areas(),
         "portals": PORTALS,
         "mcp_servers": mcp_registry.status(),
     }

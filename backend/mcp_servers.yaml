@@ -11,6 +11,13 @@ servers:
     transport: streamable_http
     url: ${FAB_MCP_URL:-http://localhost:8100/mcp}
 
+  # ceeria tool 전체 (Lot/설비/재공/Hold/Part/지식베이스/검사·MCRS) — siria/adapters/mcp_server.py
+  #   실행: cd siria && python -m adapters.mcp_server --http
+  ceeria:
+    enabled: ${CEERIA_MCP_ENABLED:-true}
+    transport: streamable_http
+    url: ${CEERIA_MCP_URL:-http://localhost:8200/mcp}
+
   # ── 회사 MCP 서버 예시 ── 주소/토큰만 채우고 enabled 를 true 로
   company_line:
     enabled: ${COMPANY_MCP_ENABLED:-false}

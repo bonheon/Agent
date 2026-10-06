@@ -65,6 +65,12 @@ def get_tools(names: list[str]) -> list[BaseTool]:
     return [_REGISTRY[n] for n in names]
 
 
+def all_tools() -> list[BaseTool]:
+    """등록된 전체 tool (등록 순서). MCP 서버가 통째로 노출할 때 사용."""
+    _load_all()
+    return list(_REGISTRY.values())
+
+
 def list_tools() -> dict[str, str]:
     """등록된 전체 tool 의 {이름: 설명 첫 줄} 목록. 디버깅/문서용."""
     _load_all()

@@ -6,14 +6,7 @@ from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-from tools.yield_tools import (
-    get_all_lots,
-    analyze_yield,
-    GROUPING_COLUMNS,
-    YIELD_PARAMS_META,
-    PASS_PARAMS,
-    FAIL_PARAMS,
-)
+from hub.mcp_data import call
 
 router = APIRouter(prefix="/api/yield", tags=["yield"])
 
@@ -25,26 +18,24 @@ class AnalyzeRequest(BaseModel):
 
 
 @router.get("/lots")
-def list_lots():
-    return {"lots": get_all_lots()}
+async def list_lots():
+    return {"lots": await call("ui_yield_lots")}
 
 
 @router.get("/meta")
-def get_meta():
-    return {
-        "grouping_columns": GROUPING_COLUMNS,
-        "yield_params": YIELD_PARAMS_META,
-    }
+async def get_meta():
+    meta = await call("ui_yield_meta")
+    return {"grouping_columns": meta["grouping_columns"], "yield_params": meta["yield_params"]}
 
 
 @router.post("/analyze")
-def analyze(req: AnalyzeRequest):
-    return analyze_yield(req.lot_ids, req.group_by, req.yield_params)
+async def analyze(req: AnalyzeRequest):
+    return await call("ui_yield_analyze", **req.model_dump())
 
 
 @router.post("/export")
-def export_excel(req: AnalyzeRequest):
-    result = analyze_yield(req.lot_ids, req.group_by, req.yield_params)
+async def export_excel(req: AnalyzeRequest):
+    result = await call("ui_yield_analyze", **req.model_dump())
 
     wb = openpyxl.Workbook()
     _build_summary_sheet(wb.active, result, req)

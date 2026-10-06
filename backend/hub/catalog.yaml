@@ -5,7 +5,7 @@
 #   agent = 업무 방식   (어떻게 다루나)     → 프롬프트 · 허용 범위 · 기본 그룹
 # 프롬프트가 다르지 않다면 agent 를 늘리지 말고 skill 이나 group 으로 해결한다.
 #
-# tool 이름은 MCP(현재는 tools/langgraph_tools.py) 가 내려주는 이름과 같아야 한다.
+# tool 이름은 MCP 서버가 내려주는 이름과 같아야 한다 (fab: tools/langgraph_tools.py, ceeria: siria/tools · skills).
 # 로드 시 검증해서 모르는 이름은 경고만 남기고 "사용 불가" 로 취급한다.
 
 groups:
@@ -29,6 +29,30 @@ groups:
     description: Wafer 수율 · Chip Kill · Lot Grouping
     tools: [get_yield_defect, get_defect_yield_history, analyze_yield_grouping, get_wafer_map]
 
+  # ── ceeria MCP ──
+  - id: fab_status
+    name: Lot · 설비 현황
+    description: Lot 위치 · 이동 이력 · Hold 상세 · 설비 상태 · 재공 집계 · Part 재고
+    tools: [get_lot_info, get_lot_history, get_hold_list, get_eq_status, get_wip_summary, get_part_inventory]
+
+  - id: knowledge
+    name: 지식베이스
+    description: 매뉴얼 · 공정 스펙 · 트러블슈팅 사례 문서 검색
+    tools: [search_knowledge]
+
+  - id: inspection
+    name: 검사 · PM
+    description: 공정 컨텍스트 · INSP Map · Review 이미지 · PM 이력 · MCRS 판단
+    tools: [get_process_context, get_insp_map, get_review_images, get_pm_history, get_step_trend,
+            get_insp_map_history, get_eq_insp_coverage, get_mcrs_issues, compare_pm_effect]
+
+# 화면 전용 tool — 차트 · 대시보드 API 가 MCP 로 부른다 (hub/mcp_data.py). LLM 에는 절대 묶지 않는다.
+# 회사 MCP 로 옮길 때 같은 이름 · 인자 · JSON 모양으로 제공하면 화면도 그대로 붙는다.
+ui_tools: [ui_wafer_map, ui_lot_trend, ui_defect_map, ui_defect_review, ui_defect_trend,
+           ui_yield_defect, ui_defect_yield_history, ui_defect_step_overlay,
+           ui_wip_status, ui_wip_areas, ui_daily_report,
+           ui_yield_lots, ui_yield_meta, ui_yield_analyze]
+
 # 첫 번째 agent 가 fallback 이다 — Router 가 판단하지 못하거나 오류가 나면 여기로 간다.
 # 그래서 영역을 넘나드는 질문을 받아줄 수 있도록 allowed_groups 가 가장 넓어야 한다.
 agents:
@@ -38,8 +62,8 @@ agents:
     route_hint: |
       일반적인 라인 현황/데이터 조회, 개념·기준 질문, 여러 영역(라인 운영+수율 등)을 함께 묻는 질문.
       특정 Lot 의 이상 원인을 추적해 달라는 요청이 아니면 대부분 여기에 해당한다.
-    allowed_groups: [line, lot, defect, yield]
-    default_groups: [line, lot, defect, yield]
+    allowed_groups: [line, lot, defect, yield, fab_status, knowledge, inspection]
+    default_groups: [line, lot, defect, yield, knowledge]
     prompt: |
       당신은 반도체 라인 지식 기반 어시스턴트 '씨리아'입니다.
       - 실시간 현황과 수치는 반드시 tool 로 조회한 결과만 근거로 답합니다.
@@ -52,7 +76,7 @@ agents:
       특정 Lot 이 Hold/이상/불량/수율 저하 상태이고, 그 원인을 찾거나 처리 방향을 묻는 질문.
       예) "TE2FE35 왜 hold 걸렸어", "이 lot 수율 떨어진 원인 찾아줘".
       단순 현황 조회(WIP, 전일 이슈 요약)는 해당하지 않는다.
-    allowed_groups: [lot, defect, yield]
+    allowed_groups: [lot, defect, yield, fab_status, knowledge, inspection]
     default_groups: [lot, defect]
     prompt: |
       당신은 Trouble Lot 분석 담당 agent 입니다.

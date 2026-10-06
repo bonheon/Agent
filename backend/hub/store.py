@@ -1,5 +1,5 @@
 """
-Hub JSON 파일 저장소 — 대화 / 스킬 / 이벤터.
+Hub JSON 파일 저장소 — 대화 / 스킬 사용 기록 / 이벤터.
 
 사내 DB 연동 전까지 backend/data/hub.json 한 파일에 저장한다.
 프로세스 하나(uvicorn 단일 worker) 기준이며, 쓰기는 lock 으로 직렬화한다.
@@ -12,7 +12,8 @@ from pathlib import Path
 from typing import Optional
 
 DATA_PATH = Path(__file__).resolve().parent.parent / "data" / "hub.json"
-COLLECTIONS = ("conversations", "skills", "events")
+# skills 는 SKILL.md 폴더로 옮겼다(hub/skills.py) — 남은 "skills" 는 이전 데이터 이관용으로만 읽는다
+COLLECTIONS = ("conversations", "skills", "skill_stats", "events")
 
 _lock = threading.Lock()
 _cache: Optional[dict] = None
@@ -27,42 +28,6 @@ def new_id(prefix: str) -> str:
 
 
 def _seed() -> dict:
-    ts = now_iso()
-    skills = [
-        {
-            "id": "sk_morning", "name": "출근 전 라인 점검",
-            "description": "전일 이슈 + 현재 WIP + Open Hold 를 한 번에 정리",
-            "tools": ["get_daily_report", "get_wip_status", "get_lot_hold_info"],
-            "instructions": (
-                "1. 전일 이슈 리포트로 P1~P2 항목을 먼저 확인한다.\n"
-                "2. P1 이 장비 DOWN 이면 해당 Area 의 현재 WIP 를 조회해 대기 WIP 를 함께 보고한다.\n"
-                "3. Open Hold 가 있으면 Lot 별 원인을 표로 정리한다.\n"
-                "4. 마지막에 오늘 우선 대응 3가지를 한 줄씩 제안한다."
-            ),
-            "uses": 0, "created_at": ts, "updated_at": ts,
-        },
-        {
-            "id": "sk_defect", "name": "Defect 원인 추적",
-            "description": "Defect Map → Step Overlay → 수율 영향 순으로 원인 추적",
-            "tools": ["get_defect_map", "get_defect_step_overlay", "get_defect_yield_history"],
-            "instructions": (
-                "1. Defect Map 으로 유형별 건수와 분포를 확인한다.\n"
-                "2. 가장 많은 유형이 있는 wafer 로 Step 간 Overlay 를 조회해 발생 step 을 찾는다.\n"
-                "3. 해당 유형의 수율 이력으로 kill rate 를 확인하고 결론을 3줄로 정리한다."
-            ),
-            "uses": 0, "created_at": ts, "updated_at": ts,
-        },
-        {
-            "id": "sk_yield", "name": "수율 브리핑",
-            "description": "전체 Lot Recipe/Equipment 기준 수율 비교",
-            "tools": ["analyze_yield_grouping", "get_wafer_map"],
-            "instructions": (
-                "Lot 을 지정하지 않으면 TE2FE35~TE2FE42 전체를 recipe 기준으로 비교하고,\n"
-                "평균이 가장 낮은 그룹을 짚어 원인 후보를 제시한다."
-            ),
-            "uses": 0, "created_at": ts, "updated_at": ts,
-        },
-    ]
     events = [
         {
             "id": "ev_daily", "name": "전일 이슈 리포트",
@@ -93,7 +58,7 @@ def _seed() -> dict:
             "target": "PPT 초안", "enabled": False, "last_run": None,
         },
     ]
-    return {"conversations": [], "skills": skills, "events": events}
+    return {"conversations": [], "events": events}
 
 
 def _load() -> dict:

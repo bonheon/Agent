@@ -1,0 +1,61 @@
+# tool 사용 안내 — 이번 턴에 켜진 tool 의 안내만 시스템 프롬프트에 붙는다 (agent.build_prompt).
+#
+# MCP tool 의 docstring 은 "무엇을 · 언제" (tool 선택 기준) 이고,
+# 여기는 허브 화면과의 약속 — 차트 태그 형식, 결과를 어떻게 정리 · 제안할지 — 를 적는다.
+# 안내가 필요 없는 tool 은 적지 않는다.
+#
+# 차트 태그는 프론트(MessageBubble)가 찾아서 카드로 그린다. 형식을 바꾸면 프론트도 같이 바꿔야 한다.
+
+get_wafer_map: |
+  차트 태그: [WAFER_MAP:{lot_id}]
+
+get_lot_trend: |
+  차트 태그: [TREND_CHART:{lot_id}:{metric}]
+  - OOC 슬롯이 있으면 표로 정리
+  - "해당 OOC Slot들의 Wafer Map도 확인하시겠어요?" 제안 가능 (강제 아님)
+
+get_defect_map: |
+  차트 태그: [DEFECT_MAP:{lot_id}:{wafer_no}]
+  - 유형별 건수 요약 후 "Trend나 수율 이력 분석도 확인하시겠어요?" 제안 가능 (강제 아님)
+  - Defect Map → Trend → 수율 분석은 권장 순서일 뿐, 사용자가 바로 요청하면 바로 실행
+
+get_defect_trend: |
+  차트 태그: [DEFECT_TREND:{lot_id}:{defect_type}]
+
+get_yield_defect: |
+  차트 태그: [YIELD_DEFECT:{lot_id}:{wafer_no}]
+  - 특정 wafer의 bin 데이터와 defect 위치 오버레이
+
+get_defect_yield_history: |
+  차트 태그: [DEFECT_YIELD_HISTORY:{lot_id}:{defect_type}]
+  - 현재 wafer의 수율이 아직 없을 때, 같은 lot의 다른 슬롯 이력을 기반으로 chip kill 가능성 추정
+  - 상관계수와 슬롯별 defect 건수 vs 수율 scatter, 평균 kill rate 제공
+
+analyze_yield_grouping: |
+  차트 태그: [YIELD_ANALYSIS:{lot_ids_콤마구분}:{group_by}:{params_콤마구분}]
+    예) [YIELD_ANALYSIS:TE2FE35,TE2FE36,TE2FE37:recipe:PT1H,PT1H_outer,bl_lkg,ledic]
+  - 사용 가능 Lot: TE2FE35, TE2FE36, TE2FE37, TE2FE38, TE2FE39, TE2FE40, TE2FE41, TE2FE42
+  - Grouping 기준: recipe(공정 레시피), equipment(장비), process_id(공정 ID), custom_group(사용자 정의)
+  - Pass rate 파라미터: PT1H, PT1H_outer, PT1H_center, PT1H_inner / Fail rate 파라미터: bl_lkg, ledic
+  - 사용자가 Lot을 명시하지 않으면 전체 Lot을 포함하거나, 어떤 Lot을 비교할지 물어보세요.
+  - Excel 다운로드 버튼은 차트 카드에 자동으로 포함됩니다.
+
+get_defect_step_overlay: |
+  차트 태그: [DEFECT_STEP_OVERLAY:{lot_id}:{wafer_no}]   예) [DEFECT_STEP_OVERLAY:TE2FE35:5]
+  - 이전 step(LITHO-01, ETCH-01, CMP-01)과 현재 step(INSP-01)의 defect을 동일 wafer에 overlay
+  - carryover defect: 동일 위치 근방에 복수 step에서 발생한 defect — step별로 유형이 다를 수 있음
+    (예: LITHO의 PARTICLE → ETCH의 PIT → INSP의 CLUSTER, 공정을 거치며 형태 변형)
+
+get_daily_report: |
+  차트 태그: [DAILY_REPORT:{area_key}]   예) [DAILY_REPORT:M14 CMP]
+  - '전일 이슈', '아침 보고', '어제 이슈' 등의 요청에 사용
+  - WIP 변동(시작→종료), 이동 달성률, 신규 Hold 건수/원인/공정별 분류
+  - Defect 스파이크 장비 식별 (기준 대비 +% 초과), 장비 DOWN 이력 + 현재 DOWN 장비 + 대기 WIP
+  - 교차 분석: DOWN 장비 + 대기 WIP + Defect 연관 → 우선 복구 순위
+  - 오늘 우선 대응 액션 리스트 (P1 긴급 / P2 주의 / P3 관찰)
+
+get_wip_status: |
+  차트 태그: [WIP_STATUS:{area_key}]   예) [WIP_STATUS:M14 CMP]
+  - 지원 Area: 'M14 CMP' (STI·Poly·W·Cu CMP), 'M14 Photo' (DUV·EUV·Coat/Dev)
+  - 공정 그룹별: WIP 재공량(Running/Queue), 장비 Status, 금일 이동 실적/목표, EOD 예상 이동량
+  - 장비 Status: RUNNING(가동), IDLE(대기), DOWN(고장), PM(예방정비), SETUP(셋업)

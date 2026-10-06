@@ -27,7 +27,10 @@ export interface RouteInfo {
   tools: string[]; locked: string[];
   dropped: { name: string; reason: "excluded" | "not_allowed" | "unavailable" }[];
   warnings: string[];
+  // 적용된 skill — manual: 사용자가 고름, router: 질문 보고 자동 선택, sticky: 직전 턴 workflow 유지
+  skill_id?: string | null; skill_name?: string | null; skill_mode?: SkillMode;
 }
+export type SkillMode = "none" | "manual" | "router" | "sticky";
 export interface User {
   user_id: string; name: string; dept: string; email: string;
   profile: Record<string, unknown>; created_at: string; last_seen: string;

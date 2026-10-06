@@ -16,7 +16,7 @@ from routers.yield_analysis import router as yield_router  # noqa: E402
 from routers.wip import router as wip_router  # noqa: E402
 from routers.daily_report import router as report_router  # noqa: E402
 from routers.hub import router as hub_router  # noqa: E402
-from hub import catalog  # noqa: E402
+from hub import catalog, skills  # noqa: E402
 from hub.service import scheduler_loop  # noqa: E402
 
 log = logging.getLogger("main")
@@ -34,6 +34,7 @@ async def mcp_refresh_loop(interval_s: int) -> None:
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
+    skills.migrate_from_store()  # 예전 hub.json skill → skills/<id>/SKILL.md (남은 게 있을 때만)
     try:
         await catalog.refresh()
     except Exception:  # noqa: BLE001 — MCP 설정 오류여도 기동은 한다 (tool 없이)

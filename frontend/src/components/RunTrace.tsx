@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { BookUser, Check, ChevronRight, CircleAlert, GitBranch, PenLine, TriangleAlert } from "lucide-react";
-import type { RouteMode } from "../api";
+import { BookUser, Check, ChevronRight, CircleAlert, GitBranch, ListChecks, PenLine, TriangleAlert } from "lucide-react";
+import type { RouteMode, SkillMode } from "../api";
 import { Message } from "../types";
 import { useHub } from "../hub";
 
@@ -13,6 +13,12 @@ const MODE_LABEL: Record<RouteMode, string> = {
   sticky: "직전 agent 유지",
   router: "자동 분기",
   fallback: "기본 agent",
+};
+
+const SKILL_MODE_LABEL: Record<Exclude<SkillMode, "none">, string> = {
+  manual: "직접 선택",
+  router: "자동 선택",
+  sticky: "진행 중 유지",
 };
 
 const DROP_LABEL = { excluded: "끔", not_allowed: "agent 범위 밖", unavailable: "서버 응답 없음" } as const;
@@ -77,6 +83,7 @@ export default function RunTrace({ message }: { message: Message }) {
         {!live && <ChevronRight size={13} className={`chev ${open ? "on" : ""}`} />}
         <b>{live ? "처리 중" : "처리 과정"}</b>
         {route && <span className="tr-agent"><GitBranch size={12} />{route.agent_name}</span>}
+        {route?.skill_name && <span className="tr-agent"><ListChecks size={12} />{route.skill_name}</span>}
         {tools.length > 0 && <span>tool {tools.length}개{failed ? ` · 실패 ${failed}` : ""}</span>}
         {route && route.warnings.length > 0 && <span className="tr-warn"><TriangleAlert size={12} />{route.warnings.length}</span>}
         <span className="tr-time">
@@ -105,6 +112,11 @@ export default function RunTrace({ message }: { message: Message }) {
                 {route.dropped.length > 0 && " · 제외 " + route.dropped.map((d) => `${toolLabel(d.name)}(${DROP_LABEL[d.reason]})`).join(", ")}
               </small>
               {route.warnings.map((w) => <small key={w} className="warn"><TriangleAlert size={11} />{w}</small>)}
+            </Step>
+          )}
+          {route?.skill_name && route.skill_mode && route.skill_mode !== "none" && (
+            <Step state="ok" icon={<ListChecks size={13} />} right={<span className="tag">{SKILL_MODE_LABEL[route.skill_mode]}</span>}>
+              스킬 <b>{route.skill_name}</b> 절차 적용
             </Step>
           )}
 

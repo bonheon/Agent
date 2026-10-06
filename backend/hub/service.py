@@ -7,9 +7,8 @@ import re
 from datetime import datetime, timedelta
 from typing import Optional
 
-from hub import store
-from tools.daily_report_tools import get_daily_report
-from tools.wip_tools import get_wip_status
+from hub import skills, store
+from hub.mcp_data import call
 
 log = logging.getLogger("hub")
 
@@ -35,8 +34,10 @@ def save_turn(
     conv_id: Optional[str], user_text: str, assistant_text: str, tools: list[dict],
     agent_id: str, skill_id: Optional[str], source: str = "chat", event_id: Optional[str] = None,
     routed_agent: Optional[str] = None, route: Optional[dict] = None, user_id: Optional[str] = None,
+    trace: Optional[list[dict]] = None, routed_skill: Optional[str] = None,
 ) -> dict:
-    """agent_id 는 사용자가 고른 값(auto 포함), routed_agent 는 실제로 처리한 agent — 다음 턴 sticky routing 기준."""
+    """agent_id · skill_id 는 사용자가 고른 값(auto · 없음 포함), routed_agent · routed_skill 은 실제로 적용된 값
+    — 다음 턴 sticky routing 기준. routed_skill 은 workflow 가 끝나 skill 이 빠진 턴이면 지운다."""
     ts = store.now_iso()
     conv = store.get_item("conversations", conv_id) if conv_id else None
     if conv is None:
@@ -48,18 +49,20 @@ def save_turn(
         }
     conv["messages"] += [
         {"role": "user", "content": user_text, "at": ts},
-        {"role": "assistant", "content": assistant_text, "tools": tools, "agent": routed_agent, "route": route, "at": ts},
+        {"role": "assistant", "content": assistant_text, "tools": tools, "agent": routed_agent, "route": route,
+         "trace": trace or [], "at": ts},
     ]
     conv.update(agent_id=agent_id, skill_id=skill_id, updated_at=ts, summary=summarize(assistant_text))
     if routed_agent:
         conv["routed_agent"] = routed_agent
+        conv["routed_skill"] = routed_skill
     if user_id:
         conv.setdefault("user_id", user_id)
     store.upsert_item("conversations", conv)
 
-    if skill_id and (skill := store.get_item("skills", skill_id)):
-        skill["uses"] = skill.get("uses", 0) + 1
-        store.upsert_item("skills", skill)
+    used = routed_skill or skill_id
+    if used and skills.get_item(used):
+        skills.count_use(used)
     return conv
 
 
@@ -85,19 +88,20 @@ def event_view(event: dict) -> dict:
 
 async def run_event(event_id: str) -> dict:
     """이벤트를 지금 실행하고 결과 대화를 저장한다."""
-    import agent  # 순환 import 방지 — agent 가 hub.store 를 쓴다
+    import agent  # 순환 import 방지 — agent 가 hub 모듈들을 쓴다
 
     event = store.get_item("events", event_id)
     if event is None:
         raise KeyError(event_id)
 
-    skill = store.get_item("skills", event["skill_id"]) if event.get("skill_id") else None
+    skill = skills.get_item(event.get("skill_id"))
     prompt = event.get("prompt") or (f"'{skill['name']}' 스킬을 실행해줘" if skill else event["name"])
     started = datetime.now()
     try:
         text, tools, plan = await agent.run([{"role": "user", "content": prompt}], event.get("agent_id"), event.get("skill_id"))
         conv = save_turn(None, prompt, text, tools, event.get("agent_id") or "auto", event.get("skill_id"),
-                         source="event", event_id=event_id, routed_agent=plan.agent_id, route=plan.summary())
+                         source="event", event_id=event_id, routed_agent=plan.agent_id, route=plan.summary(),
+                         routed_skill=plan.skill_id)
         conv["title"] = event["name"]
         store.upsert_item("conversations", conv)
         event["last_run"] = {
@@ -136,9 +140,8 @@ async def scheduler_loop(interval_s: int = 30) -> None:
 
 # ── 홈 대시보드 ────────────────────────────────────────────────
 
-def overview(area: str) -> dict:
-    wip = get_wip_status(area)
-    report = get_daily_report(area)
+async def overview(area: str) -> dict:
+    wip, report = await asyncio.gather(call("ui_wip_status", area_key=area), call("ui_daily_report", area_key=area))
     kpi = report["kpi"]
 
     groups, down_eq = [], []

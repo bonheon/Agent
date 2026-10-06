@@ -1,0 +1,347 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Coris 구조</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f7f7f5; --surface: #ffffff; --surface-2: #f0efeb; --line: #e2e0da;
+  --text: #1d1d1b; --muted: #6b6a65; --accent: #2f5bd3; --accent-soft: #e6ecfb;
+  --hub: #2f5bd3; --hub-soft: #e6ecfb; --mcp: #1f8a5b; --mcp-soft: #e2f3ea;
+  --ui: #b26a00; --ui-soft: #fbefdc; --skill: #8a3fc4; --skill-soft: #f1e6fa;
+  --code-bg: #f3f2ee;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #141413; --surface: #1d1d1b; --surface-2: #262624; --line: #34332f;
+    --text: #ecebe6; --muted: #a09e96; --accent: #7d9cf0; --accent-soft: #1f2a45;
+    --hub: #7d9cf0; --hub-soft: #1f2a45; --mcp: #5cc795; --mcp-soft: #17332a;
+    --ui: #e6a542; --ui-soft: #3a2a12; --skill: #c08ae8; --skill-soft: #2f2140;
+    --code-bg: #232321;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #141413; --surface: #1d1d1b; --surface-2: #262624; --line: #34332f;
+  --text: #ecebe6; --muted: #a09e96; --accent: #7d9cf0; --accent-soft: #1f2a45;
+  --hub: #7d9cf0; --hub-soft: #1f2a45; --mcp: #5cc795; --mcp-soft: #17332a;
+  --ui: #e6a542; --ui-soft: #3a2a12; --skill: #c08ae8; --skill-soft: #2f2140;
+  --code-bg: #232321;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; background: var(--bg); color: var(--text);
+  font: 15px/1.65 "Noto Sans KR", system-ui, sans-serif;
+}
+main { max-width: 980px; margin: 0 auto; padding: 40px 16px 80px; }
+h1 { font-size: 30px; margin: 0 0 6px; letter-spacing: -0.02em; }
+h2 { font-size: 21px; margin: 56px 0 14px; padding-top: 8px; border-top: 1px solid var(--line); letter-spacing: -0.01em; }
+h3 { font-size: 16px; margin: 26px 0 8px; }
+p { margin: 8px 0; }
+.lead { color: var(--muted); font-size: 16px; max-width: 720px; }
+.meta { color: var(--muted); font-size: 13px; margin-top: 10px; }
+code, pre { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 13px; }
+code { background: var(--code-bg); padding: 1px 5px; border-radius: 4px; }
+pre { background: var(--code-bg); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; overflow-x: auto; line-height: 1.55; margin: 10px 0; }
+pre code { background: none; padding: 0; }
+nav.toc { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 22px 0 0; font-size: 14px; }
+nav.toc a { color: var(--accent); text-decoration: none; }
+nav.toc a:hover { text-decoration: underline; }
+
+/* 레이어 다이어그램 */
+.layers { display: grid; gap: 10px; margin: 18px 0; }
+.layer { border: 1px solid var(--line); border-radius: 10px; background: var(--surface); padding: 14px 16px; }
+.layer .lh { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+.layer .lh b { font-size: 15px; }
+.layer .lh small { color: var(--muted); }
+.layer.hub { border-left: 4px solid var(--hub); }
+.layer.mcp { border-left: 4px solid var(--mcp); }
+.layer.fe { border-left: 4px solid var(--muted); }
+.layer.data { border-left: 4px solid var(--line); }
+.arrow { text-align: center; color: var(--muted); font-size: 13px; line-height: 1; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { font-size: 12.5px; padding: 3px 9px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--line); white-space: nowrap; }
+.chip.hub { background: var(--hub-soft); border-color: transparent; color: var(--hub); }
+.chip.mcp { background: var(--mcp-soft); border-color: transparent; color: var(--mcp); }
+.chip.ui { background: var(--ui-soft); border-color: transparent; color: var(--ui); }
+.chip.skill { background: var(--skill-soft); border-color: transparent; color: var(--skill); }
+.servers { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 10px; }
+.server { background: var(--surface-2); border-radius: 8px; padding: 10px 12px; }
+.server b { display: block; margin-bottom: 6px; font-size: 14px; }
+.server .k { font-size: 12px; color: var(--muted); margin: 8px 0 4px; }
+
+/* 흐름 */
+ol.flow { list-style: none; padding: 0; margin: 14px 0; counter-reset: s; }
+ol.flow li { counter-increment: s; position: relative; padding: 10px 14px 10px 50px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; margin-bottom: 8px; }
+ol.flow li::before { content: counter(s); position: absolute; left: 14px; top: 10px; width: 24px; height: 24px; border-radius: 50%; background: var(--accent-soft); color: var(--accent); font-weight: 700; font-size: 13px; display: grid; place-items: center; }
+ol.flow li small { display: block; color: var(--muted); font-size: 13px; }
+
+/* 표 */
+.tw { overflow-x: auto; margin: 10px 0; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { background: var(--surface-2); font-weight: 500; font-size: 13px; color: var(--muted); }
+tr:last-child td { border-bottom: none; }
+
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(270px, 1fr)); gap: 10px; margin: 12px 0; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
+.card h4 { margin: 0 0 6px; font-size: 15px; }
+.card p, .card li { font-size: 14px; color: var(--text); }
+.card ul { margin: 6px 0 0; padding-left: 18px; }
+.tag { display: inline-block; font-size: 11.5px; font-weight: 500; padding: 1px 8px; border-radius: 999px; margin-left: 6px; vertical-align: 2px; }
+.tag.done { background: var(--mcp-soft); color: var(--mcp); }
+.tag.todo { background: var(--ui-soft); color: var(--ui); }
+.note { background: var(--accent-soft); border-radius: 8px; padding: 12px 14px; font-size: 14px; margin: 12px 0; }
+.theme-toggle { position: fixed; top: 12px; right: 12px; border: 1px solid var(--line); background: var(--surface); color: var(--text); border-radius: 999px; padding: 5px 12px; font: inherit; font-size: 12.5px; cursor: pointer; }
+@media (max-width: 600px) {
+  h1 { font-size: 24px; }
+  main { padding-top: 56px; }
+}
+</style>
+</head>
+<body>
+<button class="theme-toggle" id="theme">테마</button>
+<main>
+  <h1>Coris 구조</h1>
+  <p class="lead">반도체 라인 업무 super agent. 데이터 조회와 판단은 MCP 서버의 tool이 맡고, 업무 workflow는 skill(<code>SKILL.md</code>)로 등록하며, Coris 허브는 어떤 agent · skill · tool로 처리할지 고르고 실행만 한다.</p>
+  <p class="meta">기준: 2026-10-06 · 저장소 <code>bonheon/Agent</code></p>
+  <nav class="toc">
+    <a href="#overview">전체 구조</a><a href="#flow">요청 처리 흐름</a><a href="#concepts">핵심 개념</a>
+    <a href="#skill">Skill</a><a href="#context">맥락 유지</a><a href="#dirs">디렉토리</a>
+    <a href="#extend">확장 방법</a><a href="#run">실행</a><a href="#company">회사 환경 전환</a><a href="#next">남은 과제</a>
+  </nav>
+
+  <h2 id="overview">전체 구조</h2>
+  <p>허브(backend)는 데이터 코드를 갖지 않습니다. LLM이 쓰는 tool도, 차트 · 대시보드가 쓰는 화면 데이터도 전부 MCP 서버에서 받아옵니다. 그래서 <code>mcp_servers.yaml</code>의 주소만 바꾸면 회사 서버로 넘어갑니다.</p>
+
+  <div class="layers">
+    <div class="layer fe">
+      <div class="lh"><b>Frontend</b><small>React 19 · TypeScript · <code>frontend/</code></small></div>
+      <div class="chips">
+        <span class="chip">채팅 · 실행 과정 표시(RunTrace)</span><span class="chip">스킬 편집</span>
+        <span class="chip">이벤터</span><span class="chip">홈 대시보드</span><span class="chip">차트 카드</span><span class="chip">사용자 메모리</span>
+      </div>
+    </div>
+    <div class="arrow">▼ SSE <code>/api/chat</code> · REST <code>/api/hub · /api/chart · /api/wip · /api/report · /api/yield</code></div>
+    <div class="layer hub">
+      <div class="lh"><b>Coris 허브</b><small>FastAPI · LangGraph · <code>backend/</code> — 고르고 실행만 한다</small></div>
+      <div class="chips">
+        <span class="chip hub">routing — agent + skill 선택</span>
+        <span class="chip hub">plan_tools — 최종 tool 규칙 계산</span>
+        <span class="chip hub">agent — ReAct 실행 · 프롬프트 조립</span>
+        <span class="chip skill">skills/ — SKILL.md</span>
+        <span class="chip hub">tool_guides.yaml — 차트 태그 · 정리 방식</span>
+        <span class="chip hub">trace — 이전 조회 결과 유지</span>
+        <span class="chip hub">memory — 사용자 메모리</span>
+        <span class="chip hub">mcp_data — 화면 데이터 중계</span>
+        <span class="chip hub">catalog — group · agent 정의</span>
+      </div>
+    </div>
+    <div class="arrow">▼ MCP (streamable HTTP) — <code>mcp_servers.yaml</code></div>
+    <div class="layer mcp">
+      <div class="lh"><b>MCP 서버</b><small>tool = 데이터 조회 · 판단 로직</small></div>
+      <div class="servers">
+        <div class="server">
+          <b>fab <small style="color:var(--muted);font-weight:400">· <code>fab_mcp/</code> · :8100</small></b>
+          <div class="k">LLM용 11개 (요약 결과)</div>
+          <div class="chips"><span class="chip mcp">get_daily_report</span><span class="chip mcp">get_wip_status</span><span class="chip mcp">get_lot_hold_info</span><span class="chip mcp">get_lot_trend</span><span class="chip mcp">get_defect_map</span><span class="chip mcp">get_defect_trend</span><span class="chip mcp">get_defect_step_overlay</span><span class="chip mcp">get_yield_defect</span><span class="chip mcp">get_defect_yield_history</span><span class="chip mcp">analyze_yield_grouping</span><span class="chip mcp">get_wafer_map</span></div>
+          <div class="k">화면 전용 14개 (전체 데이터, LLM에 안 묶임)</div>
+          <div class="chips"><span class="chip ui">ui_wafer_map</span><span class="chip ui">ui_lot_trend</span><span class="chip ui">ui_defect_*</span><span class="chip ui">ui_wip_status</span><span class="chip ui">ui_daily_report</span><span class="chip ui">ui_yield_*</span><span class="chip ui">…</span></div>
+        </div>
+        <div class="server">
+          <b>ceeria <small style="color:var(--muted);font-weight:400">· <code>siria/</code> · :8200</small></b>
+          <div class="k">공용 7개</div>
+          <div class="chips"><span class="chip mcp">get_lot_info</span><span class="chip mcp">get_lot_history</span><span class="chip mcp">get_hold_list</span><span class="chip mcp">get_eq_status</span><span class="chip mcp">get_wip_summary</span><span class="chip mcp">get_part_inventory</span><span class="chip mcp">search_knowledge</span></div>
+          <div class="k">검사 · MCRS 9개</div>
+          <div class="chips"><span class="chip mcp">get_process_context</span><span class="chip mcp">get_insp_map</span><span class="chip mcp">get_review_images</span><span class="chip mcp">get_pm_history</span><span class="chip mcp">get_step_trend</span><span class="chip mcp">get_insp_map_history</span><span class="chip mcp">get_eq_insp_coverage</span><span class="chip mcp">get_mcrs_issues</span><span class="chip mcp">compare_pm_effect</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="arrow">▼</div>
+    <div class="layer data">
+      <div class="lh"><b>데이터</b><small>지금은 mock — 회사 DB · Milvus · 회사 MCP 서버로 교체</small></div>
+    </div>
+  </div>
+
+  <h2 id="flow">요청 처리 흐름</h2>
+  <p><code>POST /api/chat</code> 한 번이 처리되는 순서입니다 (<code>routers/chat.py</code>).</p>
+  <ol class="flow">
+    <li>대화 · 사용자 메모리 불러오기<small>저장된 대화에서 직전 턴의 <code>routed_agent</code> · <code>routed_skill</code>과 각 답변의 trace(tool 호출 · 결과)를 찾아 붙인다.</small></li>
+    <li>후보 계산 — 코드<small>사용자가 고른 tool · skill을 모두 쓸 수 있는 agent만 후보로. 사용자가 skill을 고르지 않았으면 필수 tool을 후보 agent가 쓸 수 있는 skill만 후보로.</small></li>
+    <li>Router — LLM 1회 (<code>ROUTER_MODEL</code>, 기본 gpt-4o-mini)<small>agent와 skill을 같이 고른다. 응답 스키마가 후보 id의 enum이라 후보 밖 값은 나올 수 없다. 직전 턴의 agent · skill은 유지하는 쪽으로 기울인다(sticky). 후보가 하나뿐이고 skill 후보도 없으면 호출하지 않는다.</small></li>
+    <li>최종 tool 계산 — 코드 (<code>plan_tools</code>)<small>(사용자 선택 또는 skill tool 또는 agent 기본 group) ∪ skill 필수 tool − 끈 tool ∩ agent 허용 범위 ∩ 지금 응답하는 MCP tool. 빠진 tool은 이유와 함께 화면 · 프롬프트에 알린다.</small></li>
+    <li>프롬프트 조립<small>공통 원칙 + agent 프롬프트 + <b>켜진 tool의 안내만</b>(tool_guides.yaml) + skill 절차(SKILL.md 본문) + 사용자 메모리 + 사용 불가 tool 경고.</small></li>
+    <li>ReAct 실행 (LangGraph)<small>켜진 tool만 <code>bind_tools</code>. tool 조합별로 그래프를 컴파일해 LRU 캐시. 이전 턴 trace는 tool 메시지로 다시 넣는다.</small></li>
+    <li>저장<small>답변 · tool 요약 · trace · 라우팅 결과를 대화에 저장, skill 사용 횟수 증가, 사용자 메모리는 백그라운드로 갱신.</small></li>
+  </ol>
+
+  <h2 id="concepts">핵심 개념</h2>
+  <div class="tw"><table>
+    <tr><th style="width:120px">개념</th><th>정의</th><th style="width:230px">위치</th></tr>
+    <tr><td><b>tool</b></td><td>데이터 조회 1건, 또는 조회 결과로 기준을 판정하는 판단 1건. 판단 없이 데이터만 돌려주는 조회 tool과, 수치 기준을 코드로 판정하는 판단 tool로 나뉜다.</td><td>MCP 서버 (<code>fab_mcp/</code>, <code>siria/</code>)</td></tr>
+    <tr><td><b>skill</b></td><td>업무 workflow 1개. 어떤 tool을 어떤 순서로 쓰고, 결과를 어떻게 해석 · 보고할지 적은 절차 문서. 확장의 기본 단위.</td><td><code>backend/skills/&lt;id&gt;/SKILL.md</code></td></tr>
+    <tr><td><b>group</b></td><td>데이터 영역 단위의 tool 묶음. 사용자가 묶음으로 켜고 끄고, agent 허용 범위를 정할 때 쓴다.</td><td><code>backend/hub/catalog.yaml</code></td></tr>
+    <tr><td><b>agent</b></td><td>업무 방식(프롬프트 · 허용 group · 기본 group). 프롬프트가 달라야 할 때만 늘린다. 현재 ceeria(C&amp;C 지식 챗봇, fallback) · trouble.</td><td><code>backend/hub/catalog.yaml</code></td></tr>
+    <tr><td><b>tool 안내</b></td><td>허브 화면과의 약속 — 차트 태그 형식, 결과 정리 · 제안 방식. 켜진 tool 것만 프롬프트에 붙는다.</td><td><code>backend/hub/tool_guides.yaml</code></td></tr>
+    <tr><td><b>화면 전용 tool</b></td><td><code>ui_</code>로 시작. 차트 · 대시보드용 전체 데이터. LLM에는 절대 묶이지 않는다(group에 넣으면 기동 시 에러).</td><td><code>fab_mcp/tools/ui_tools.py</code>, catalog.yaml <code>ui_tools</code></td></tr>
+  </table></div>
+  <div class="note">판단은 두 곳에 나눠 둔다. <b>수치 기준이 정해진 판단</b>(예: PM 전후 defect 30% 이상 감소면 효과 있음)은 판단 tool 코드에 둬서 매번 같은 결과가 나오고 검증 가능하게 한다. <b>순서 · 분기 · 해석 · 보고 형식</b>은 SKILL.md 본문에 둔다.</div>
+
+  <h2 id="skill">Skill</h2>
+  <p>폴더 하나가 skill 하나입니다. 화면(스킬 메뉴)에서 만들거나 고쳐도, 에디터로 직접 고쳐도 같은 파일이 바뀝니다. 폴더를 넣으면 생기고 빼면 사라집니다 (재시작 불필요).</p>
+<pre><code>backend/skills/sk_morning/SKILL.md
+---
+name: sk_morning              # = 폴더명(id)
+title: 출근 전 라인 점검        # 화면 표시명
+description: 전일 이슈 + 현재 WIP + Open Hold 를 한 번에 정리   # Router 판단 근거
+tools:                        # 이 workflow의 필수 tool (MCP tool 이름)
+- get_daily_report
+- get_wip_status
+- get_lot_hold_info
+---
+
+1. 전일 이슈 리포트로 P1~P2 항목을 먼저 확인한다.
+2. P1 이 장비 DOWN 이면 해당 Area 의 현재 WIP 를 조회해 대기 WIP 를 함께 보고한다.
+...</code></pre>
+  <h3>Skill이 적용되는 방식</h3>
+  <div class="tw"><table>
+    <tr><th style="width:130px">skill_mode</th><th>언제</th><th>예</th></tr>
+    <tr><td><span class="chip skill">manual</span></td><td>사용자가 화면에서 skill을 골랐을 때</td><td>스킬 메뉴 → 실행</td></tr>
+    <tr><td><span class="chip skill">router</span></td><td>질문이 skill의 업무를 해 달라는 요청일 때 Router가 고름</td><td>"M14 CMP 출근 전 라인 점검 해줘" → sk_morning</td></tr>
+    <tr><td><span class="chip skill">sticky</span></td><td>직전 턴의 skill 절차 진행 중, 사용자가 되물음에 답하거나 "계속"할 때 유지</td><td>"3번 wafer로 계속해줘" → sk_defect 유지</td></tr>
+    <tr><td><span class="chip">none</span></td><td>단발 조회 · 일반 질문 · 주제 전환</td><td>"TE2FE35 wafer map 보여줘", "dishing이 뭐야?"</td></tr>
+  </table></div>
+  <p>Skill이 적용되면 그 skill의 필수 tool만 켜진다. LLM이 보는 tool 수 자체가 줄어 선택 정확도가 오른다. <code>AUTO_SKILL=0</code>이면 자동 선택을 끄고 사용자가 고른 skill만 쓴다.</p>
+
+  <h2 id="context">맥락 유지 (trace)</h2>
+  <p>프론트는 대화 텍스트만 보냅니다. 텍스트만 넘기면 "아까 조회한 것 중 OOC 슬롯만" 같은 후속 질문에서 LLM이 앞서 조회한 원본 데이터를 보지 못해 다시 조회하거나 값을 지어냅니다. 그래서:</p>
+  <ul>
+    <li>턴이 끝나면 그 턴의 tool 호출과 결과를 대화 기록에 <code>trace</code>로 저장 (결과는 tool당 3000자까지).</li>
+    <li>다음 턴에 최근 3턴의 trace를 실제 tool 메시지(<code>AIMessage.tool_calls</code> + <code>ToolMessage</code>)로 다시 넣는다.</li>
+    <li>trace는 서버 내부용 — 화면으로 내려가는 대화 조회 API에서는 뺀다.</li>
+  </ul>
+
+  <h2 id="dirs">디렉토리</h2>
+<pre><code>Agent/
+├── frontend/                 React UI
+├── backend/                  <b>Coris 허브</b> — 데이터 코드 없음
+│   ├── main.py               기동: skill 이관 → MCP tool 로드 → 주기적 갱신
+│   ├── agent.py              프롬프트 조립 · ReAct 실행 · trace 저장/재생
+│   ├── mcp_servers.yaml      MCP 서버 주소 (fab, ceeria, 회사 서버)
+│   ├── skills/&lt;id&gt;/SKILL.md  업무 workflow
+│   ├── hub/
+│   │   ├── routing.py        agent + skill 선택, 최종 tool 계산
+│   │   ├── skills.py         SKILL.md 저장소
+│   │   ├── catalog.py/.yaml  group · agent · ui_tools 정의
+│   │   ├── tool_guides.yaml  tool별 차트 태그 · 정리 방식
+│   │   ├── mcp_registry.py   MCP 서버별 tool 로드 (장애 격리)
+│   │   ├── mcp_data.py       화면 데이터 → MCP ui_* 호출
+│   │   ├── memory.py         사용자 메모리 (md)
+│   │   ├── service.py        대화 저장 · 이벤터 · 홈 대시보드
+│   │   └── store.py          hub.json (대화 · skill 사용 기록 · 이벤터)
+│   └── routers/              chat · hub · chart · wip · report · yield
+├── fab_mcp/                  <b>fab MCP 서버</b> (mock) — LLM용 + 화면용 tool
+│   ├── server.py
+│   └── tools/                langgraph_tools · ui_tools · *_tools (mock 데이터)
+├── siria/                    <b>ceeria</b> — core/ 로직 + tools/ + skills/mcrs_analysis
+│   └── adapters/mcp_server.py  registry 전체를 MCP로 노출 (--http)
+├── design/                   UI 목업
+└── docs/architecture.html    이 문서</code></pre>
+
+  <h2 id="extend">확장 방법</h2>
+  <div class="cards">
+    <div class="card">
+      <h4>조회 · 판단 tool 추가 (ceeria)</h4>
+      <ul>
+        <li><code>siria/core/xxx_service.py</code>에 순수 로직</li>
+        <li><code>siria/tools/xxx_tools.py</code>에 <code>@tool @safe_tool</code> wrapper + <code>register()</code></li>
+        <li>docstring에 무엇을 / 언제 / 다른 tool과 구분 — LLM의 선택 기준</li>
+        <li>MCP 서버는 수정 불필요 (registry 전체 노출)</li>
+        <li>허브 <code>catalog.yaml</code>의 group에 이름 추가</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h4>Skill(업무 workflow) 추가</h4>
+      <ul>
+        <li>화면 스킬 메뉴에서 만들기, 또는 <code>backend/skills/&lt;id&gt;/SKILL.md</code> 직접 작성</li>
+        <li><code>description</code>은 "언제 쓰는지"를 분명히 — Router가 이걸 보고 고른다</li>
+        <li><code>tools</code>에는 절차에 필요한 tool 전부</li>
+        <li>본문: 단발 질문이면 해당 tool만 쓰고 끝낸다는 규칙 + 단계별 절차 + 보고 형식</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h4>차트가 있는 tool</h4>
+      <ul>
+        <li><code>tool_guides.yaml</code>에 차트 태그 형식 추가</li>
+        <li>필요하면 화면용 <code>ui_*</code> tool을 MCP에 추가하고 <code>catalog.yaml ui_tools</code>에 등록</li>
+        <li>프론트 차트 컴포넌트 + 태그 파싱 추가</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h4>agent 추가</h4>
+      <p>프롬프트(업무 방식)가 달라야 할 때만. 단순히 tool 조합이나 절차가 다르면 skill이나 group으로 해결한다.</p>
+    </div>
+  </div>
+
+  <h2 id="run">실행 (로컬)</h2>
+<pre><code># 1) fab MCP — :8100
+cd fab_mcp &amp;&amp; ../backend/venv/bin/python -m server
+
+# 2) ceeria MCP — :8200
+cd siria &amp;&amp; ../backend/venv/bin/python -m adapters.mcp_server --http
+
+# 3) Coris 허브 — :8000
+cd backend &amp;&amp; ./venv/bin/uvicorn main:app --reload
+
+# 4) 프론트 — :3000 (/api 는 8000 으로 프록시)
+cd frontend &amp;&amp; npm start</code></pre>
+  <p>MCP 서버가 늦게 뜨거나 죽어도 허브는 기동합니다. 응답하지 않는 서버의 tool은 "사용 불가"로 표시되고 <code>MCP_REFRESH_SEC</code>(기본 60초)마다 다시 받아옵니다.</p>
+
+  <h2 id="company">회사 환경 전환</h2>
+  <div class="tw"><table>
+    <tr><th style="width:190px">항목</th><th>바꿀 곳</th></tr>
+    <tr><td>MCP 서버 주소 · 토큰</td><td><code>.env</code>의 <code>FAB_MCP_URL</code> · <code>CEERIA_MCP_URL</code> · <code>COMPANY_*</code> (yaml에 토큰 직접 쓰지 않기)</td></tr>
+    <tr><td>tool 이름이 다를 때</td><td><code>catalog.yaml</code> group · <code>tool_guides.yaml</code> · SKILL.md <code>tools</code></td></tr>
+    <tr><td>화면 데이터</td><td>회사 MCP에서 같은 이름 · 인자 · JSON 모양의 <code>ui_*</code> tool 제공 (없으면 해당 차트 API는 503)</td></tr>
+    <tr><td>LLM 모델 · 엔드포인트</td><td>허브 <code>agent.py MODEL</code>, <code>ROUTER_MODEL</code>, <code>MEMORY_MODEL</code> / ceeria <code>SIRIA_LLM_*</code> — 회사 환경에 맞춰 환경변수로 정리 예정</td></tr>
+    <tr><td>사용자 식별</td><td><code>USER_ID_HEADER</code> 등 SSO 헤더, <code>USER_INFO_URL</code></td></tr>
+  </table></div>
+
+  <h2 id="next">남은 과제</h2>
+  <div class="cards">
+    <div class="card"><h4>판단 tool 작성<span class="tag todo">예정</span></h4><p>조회 tool 위에 수치 기준 판정 로직을 MCP tool로. 조회/판단 구분 표시는 이때 함께 정한다.</p></div>
+    <div class="card"><h4>skill별 실행 설정<span class="tag todo">검토</span></h4><p>단계가 많은 workflow는 <code>recursion_limit</code>(현재 16 고정)이 부족할 수 있다. SKILL.md frontmatter로 지정하는 방안.</p></div>
+    <div class="card"><h4>모델 · 엔드포인트 환경변수화<span class="tag todo">예정</span></h4><p>회사 LLM(vLLM 등)에 맞춰 허브 · ceeria 설정을 통일.</p></div>
+    <div class="card"><h4>평가셋<span class="tag todo">예정</span></h4><p>질문 → 기대 agent · skill · tool. 프롬프트 · catalog · skill 변경 시 회귀 확인.</p></div>
+    <div class="card"><h4>siria 실행부 정리<span class="tag todo">검토</span></h4><p>ceeria의 tool은 MCP로 이관 완료. 자체 agent factory · FastAPI · MCRS SKILL.md를 계속 둘지 결정.</p></div>
+    <div class="card"><h4>차트를 tool 결과로 렌더<span class="tag todo">검토</span></h4><p>지금은 LLM이 차트 태그를 써야 그려진다. tool 결과에 render 정보를 담아 프론트가 직접 그리면 누락이 없다.</p></div>
+  </div>
+
+  <h3>이번 개편에서 바뀐 것</h3>
+  <ul>
+    <li><span class="tag done">완료</span> ceeria tool 16개 MCP 노출 · 허브 연결</li>
+    <li><span class="tag done">완료</span> skill 저장소를 hub.json → <code>SKILL.md</code> 폴더로 (기존 데이터 자동 이관)</li>
+    <li><span class="tag done">완료</span> 이전 턴 tool 결과(trace) 유지</li>
+    <li><span class="tag done">완료</span> Router가 agent와 skill을 함께 선택 (enum 스키마, sticky)</li>
+    <li><span class="tag done">완료</span> 허브에서 데이터 코드 제거 — fab tool을 <code>fab_mcp/</code>로 분리, 화면 데이터도 MCP(<code>ui_*</code>) 경유</li>
+    <li><span class="tag done">완료</span> 프롬프트를 tool 단위로 분리 — 켜진 tool의 안내만</li>
+  </ul>
+</main>
+<script>
+(function () {
+  var root = document.documentElement, btn = document.getElementById("theme");
+  try { var saved = localStorage.getItem("coris-doc-theme"); if (saved) root.setAttribute("data-theme", saved); } catch (e) {}
+  btn.addEventListener("click", function () {
+    var dark = root.getAttribute("data-theme") ? root.getAttribute("data-theme") === "dark"
+      : window.matchMedia("(prefers-color-scheme: dark)").matches;
+    var next = dark ? "light" : "dark";
+    root.setAttribute("data-theme", next);
+    try { localStorage.setItem("coris-doc-theme", next); } catch (e) {}
+  });
+})();
+</script>
+</body>
+</html>

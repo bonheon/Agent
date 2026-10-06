@@ -1,49 +1,46 @@
+"""차트 데이터 — MCP 화면 전용 tool(ui_*)을 그대로 중계한다."""
 from fastapi import APIRouter, Query
-from tools.db_tools import (
-    _mock_wafer_map, _mock_lot_trend_full,
-    _mock_defect_map, _mock_defect_review,
-    _mock_defect_trend_full, _mock_yield_defect,
-    _mock_defect_yield_history, _mock_defect_step_overlay,
-)
+
+from hub.mcp_data import call
 
 router = APIRouter(prefix="/api/chart", tags=["chart"])
 
 
 @router.get("/wafer-map")
-def wafer_map(lot_id: str = Query(...)):
-    return _mock_wafer_map(lot_id)
+async def wafer_map(lot_id: str = Query(...)):
+    return await call("ui_wafer_map", lot_id=lot_id)
 
 
 @router.get("/trend")
-def trend(lot_id: str = Query(...), metric: str = Query("thickness")):
-    return _mock_lot_trend_full(lot_id, metric)
+async def trend(lot_id: str = Query(...), metric: str = Query("thickness")):
+    return await call("ui_lot_trend", lot_id=lot_id, metric=metric)
 
 
 @router.get("/defect-map")
-def defect_map(lot_id: str = Query(...), wafer_no: int = Query(...)):
-    return _mock_defect_map(lot_id, wafer_no)
+async def defect_map(lot_id: str = Query(...), wafer_no: int = Query(...)):
+    return await call("ui_defect_map", lot_id=lot_id, wafer_no=wafer_no)
 
 
 @router.get("/defect-review")
-def defect_review(lot_id: str = Query(...), wafer_no: int = Query(...), defect_id: str = Query(...)):
-    return _mock_defect_review(lot_id, wafer_no, defect_id)
+async def defect_review(lot_id: str = Query(...), wafer_no: int = Query(...), defect_id: str = Query(...)):
+    return await call("ui_defect_review", lot_id=lot_id, wafer_no=wafer_no, defect_id=defect_id)
 
 
 @router.get("/defect-trend")
-def defect_trend(lot_id: str = Query(...), defect_type: str = Query(...)):
-    return _mock_defect_trend_full(lot_id, defect_type)
+async def defect_trend(lot_id: str = Query(...), defect_type: str = Query(...)):
+    return await call("ui_defect_trend", lot_id=lot_id, defect_type=defect_type)
 
 
 @router.get("/yield-defect")
-def yield_defect(lot_id: str = Query(...), wafer_no: int = Query(...)):
-    return _mock_yield_defect(lot_id, wafer_no)
+async def yield_defect(lot_id: str = Query(...), wafer_no: int = Query(...)):
+    return await call("ui_yield_defect", lot_id=lot_id, wafer_no=wafer_no)
 
 
 @router.get("/defect-yield-history")
-def defect_yield_history(lot_id: str = Query(...), defect_type: str = Query(...)):
-    return _mock_defect_yield_history(lot_id, defect_type)
+async def defect_yield_history(lot_id: str = Query(...), defect_type: str = Query(...)):
+    return await call("ui_defect_yield_history", lot_id=lot_id, defect_type=defect_type)
 
 
 @router.get("/defect-step-overlay")
-def defect_step_overlay(lot_id: str = Query(...), wafer_no: int = Query(...)):
-    return _mock_defect_step_overlay(lot_id, wafer_no)
+async def defect_step_overlay(lot_id: str = Query(...), wafer_no: int = Query(...)):
+    return await call("ui_defect_step_overlay", lot_id=lot_id, wafer_no=wafer_no)

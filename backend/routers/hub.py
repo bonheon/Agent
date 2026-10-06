@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from db import user_store
-from hub import catalog, memory, routing, service, store
+from hub import catalog, memory, routing, service, skills, store
 from hub.users import current_user
 
 router = APIRouter(prefix="/api/hub", tags=["hub"])
@@ -19,8 +19,8 @@ def _or_404(item: Optional[dict], what: str) -> dict:
 # ── 메타 / 대시보드 ───────────────────────────────────────────
 
 @router.get("/meta")
-def get_meta():
-    return catalog.meta()
+async def get_meta():
+    return await catalog.meta()
 
 
 @router.post("/catalog/refresh")
@@ -38,7 +38,7 @@ class ResolveIn(BaseModel):
 @router.post("/tools/resolve")
 def resolve_tools(body: ResolveIn):
     """선택 화면 미리보기 — LLM 없이 규칙만 적용. agent=auto 면 후보 agent 목록만 돌려준다."""
-    skill = _or_404(store.get_item("skills", body.skill_id), "skill") if body.skill_id else None
+    skill = _or_404(skills.get_item(body.skill_id), "skill") if body.skill_id else None
     if body.agent_id not in catalog.AGENTS_BY_ID:
         return {"agent_id": catalog.AUTO, "candidates": routing.candidates(body.tool_selection, skill),
                 "locked": routing.skill_tools(skill)}
@@ -47,8 +47,8 @@ def resolve_tools(body: ResolveIn):
 
 
 @router.get("/overview")
-def get_overview(area: str = "M14 CMP"):
-    return service.overview(area)
+async def get_overview(area: str = "M14 CMP"):
+    return await service.overview(area)
 
 
 # ── 사용자 · 메모리 ────────────────────────────────────────────
@@ -105,7 +105,9 @@ def list_conversations(source: Optional[str] = None, limit: int = 50):
 
 @router.get("/conversations/{conv_id}")
 def get_conversation(conv_id: str):
-    return _or_404(store.get_item("conversations", conv_id), "conversation")
+    conv = _or_404(store.get_item("conversations", conv_id), "conversation")
+    # trace(tool 원본 결과)는 다음 턴 agent 입력용 — 화면에는 tools 요약만 내려보낸다
+    return conv | {"messages": [{k: v for k, v in m.items() if k != "trace"} for m in conv["messages"]]}
 
 
 @router.delete("/conversations/{conv_id}")
@@ -135,28 +137,25 @@ def _check_tools(names: list[str]) -> list[str]:
 
 @router.get("/skills")
 def list_skills():
-    return store.list_items("skills")
+    return skills.list_items()
 
 
 @router.post("/skills")
 def create_skill(body: SkillIn):
-    ts = store.now_iso()
-    skill = body.model_dump() | {"id": store.new_id("sk"), "uses": 0, "created_at": ts, "updated_at": ts}
-    _check_tools(skill["tools"])
-    return store.upsert_item("skills", skill)
+    _check_tools(body.tools)
+    return skills.save(None, **body.model_dump())
 
 
 @router.put("/skills/{skill_id}")
 def update_skill(skill_id: str, body: SkillIn):
-    skill = _or_404(store.get_item("skills", skill_id), "skill")
+    _or_404(skills.get_item(skill_id), "skill")
     _check_tools(body.tools)
-    skill.update(body.model_dump(), updated_at=store.now_iso())
-    return store.upsert_item("skills", skill)
+    return skills.save(skill_id, **body.model_dump())
 
 
 @router.delete("/skills/{skill_id}")
 def delete_skill(skill_id: str):
-    if not store.delete_item("skills", skill_id):
+    if not skills.delete_item(skill_id):
         raise HTTPException(404, "skill not found")
     return {"ok": True}
 
