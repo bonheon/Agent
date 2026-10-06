@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CalendarClock, Share2 } from "lucide-react";
-import { api, streamChat, ToolRun } from "../api";
+import { api, RouteInfo, streamChat, ToolRun, UserCtx } from "../api";
 import { Message } from "../types";
 import { useHub } from "../hub";
 import MessageBubble from "../components/MessageBubble";
@@ -9,10 +9,10 @@ import ChatContext from "./ChatContext";
 import { getFollowUpSuggestions } from "../lib/suggestions";
 
 const STARTERS = [
-  { k: "라인 운영", agent: "line", q: "M14 CMP 전일 이슈 정리해줘", d: "WIP · Hold · Defect · 장비 교차 분석" },
-  { k: "라인 운영", agent: "line", q: "M14 CMP 지금 WIP 현황 알려줘", d: "공정 그룹별 WIP와 EOD 예상" },
-  { k: "Defect", agent: "defect", q: "TE2FE35 Defect Map 보여줘", d: "Wafer별 Defect 유형 · 위치" },
-  { k: "수율", agent: "yield", q: "전체 Lot Recipe 기준으로 수율 분석해줘", d: "TE2FE35 ~ 42, PT1H · bl_lkg" },
+  { k: "라인 운영", agent: "auto", q: "M14 CMP 전일 이슈 정리해줘", d: "WIP · Hold · Defect · 장비 교차 분석" },
+  { k: "Trouble Lot", agent: "auto", q: "TE2FE35 왜 hold 걸렸는지 원인 찾아줘", d: "Hold 정보 → Defect → 수율 영향" },
+  { k: "Defect", agent: "auto", q: "TE2FE35 Defect Map 보여줘", d: "Wafer별 Defect 유형 · 위치" },
+  { k: "수율", agent: "auto", q: "전체 Lot Recipe 기준으로 수율 분석해줘", d: "TE2FE35 ~ 42, PT1H · bl_lkg" },
 ];
 
 let seq = 0;
@@ -24,10 +24,11 @@ interface Props {
 }
 
 export default function ChatPage({ convId, navigate }: Props) {
-  const { refreshConversations, refreshEvents, takePending, pendingTick, agentName, toast, conversations } = useHub();
+  const { meta, refreshConversations, refreshEvents, takePending, pendingTick, agentName, toast, conversations } = useHub();
   const [messages, setMessages] = useState<Message[]>([]);
   const [agentId, setAgentId] = useState("auto");
   const [skillId, setSkillId] = useState<string | null>(null);
+  const [toolSel, setToolSel] = useState<string[]>([]);   // 비어 있으면 자동
   const [busy, setBusy] = useState(false);
   const [loadErr, setLoadErr] = useState<string | null>(null);
 
@@ -55,7 +56,7 @@ export default function ChatPage({ convId, navigate }: Props) {
         if (!alive) return;
         setAgentId(c.agent_id || "auto");
         setSkillId(c.skill_id);
-        setMessages(c.messages.map((m, i) => ({ id: `${c.id}-${i}`, role: m.role, content: m.content, at: m.at, tools: m.tools })));
+        setMessages(c.messages.map((m, i) => ({ id: `${c.id}-${i}`, role: m.role, content: m.content, at: m.at, tools: m.tools, route: m.route })));
       },
       () => alive && setLoadErr("대화를 불러오지 못했습니다"),
     );
@@ -69,10 +70,11 @@ export default function ChatPage({ convId, navigate }: Props) {
   const patchLast = (fn: (m: Message) => Message) =>
     setMessages((prev) => prev.map((m, i) => (i === prev.length - 1 ? fn(m) : m)));
 
-  const send = useCallback(async (text: string, agent = agentId, skill = skillId) => {
+  const send = useCallback(async (text: string, agent = agentId, skill = skillId, tools = toolSel) => {
     const now = new Date().toISOString();
+    const startedAt = Date.now();
     const history = [...messagesRef.current, { id: localId(), role: "user" as const, content: text, at: now }];
-    setMessages([...history, { id: localId(), role: "assistant", content: "", at: now, streaming: true, tools: [] }]);
+    setMessages([...history, { id: localId(), role: "assistant", content: "", at: now, streaming: true, tools: [], startedAt }]);
     setBusy(true);
     const ctrl = new AbortController();
     abort.current = ctrl;
@@ -85,6 +87,7 @@ export default function ChatPage({ convId, navigate }: Props) {
           conversation_id: idRef.current,
           agent_id: agent,
           skill_id: skill,
+          tool_selection: tools.length ? { tools } : null,
         },
         {
           onMeta: (id) => {
@@ -95,10 +98,12 @@ export default function ChatPage({ convId, navigate }: Props) {
               navigate(`/c/${id}`, true);
             }
           },
+          onUser: (userCtx: UserCtx) => patchLast((m) => ({ ...m, userCtx })),
+          onRoute: (route: RouteInfo) => patchLast((m) => ({ ...m, route })),
           onDelta: (t) => patchLast((m) => ({ ...m, content: m.content + t })),
           onToolStart: (run: ToolRun) => patchLast((m) => ({ ...m, tools: [...(m.tools ?? []), run] })),
           onToolEnd: (id, ms, ok) =>
-            patchLast((m) => ({ ...m, tools: m.tools?.map((r) => (r.id === id ? { ...r, ms, ok } : r)) })),
+            patchLast((m) => ({ ...m, toolMark: m.content.length, tools: m.tools?.map((r) => (r.id === id ? { ...r, ms, ok } : r)) })),
           onError: (msg) => patchLast((m) => ({ ...m, error: `에이전트 오류: ${msg}` })),
         },
         ctrl.signal,
@@ -108,13 +113,13 @@ export default function ChatPage({ convId, navigate }: Props) {
         patchLast((m) => ({ ...m, error: "응답을 받지 못했습니다. 백엔드 서버를 확인해주세요." }));
       }
     } finally {
-      patchLast((m) => ({ ...m, streaming: false }));
+      patchLast((m) => ({ ...m, streaming: false, elapsed: Date.now() - startedAt }));
       setBusy(false);
       if (abort.current === ctrl) abort.current = null;
       refreshConversations().catch(() => {});
       if (created) ownId.current = idRef.current;
     }
-  }, [agentId, skillId, navigate, refreshConversations]);
+  }, [agentId, skillId, toolSel, navigate, refreshConversations]);
 
   // 홈 / 스킬 화면에서 넘어온 질문 바로 실행
   useEffect(() => {
@@ -123,11 +128,24 @@ export default function ChatPage({ convId, navigate }: Props) {
     if (!p) return;
     setAgentId(p.agentId);
     setSkillId(p.skillId);
-    send(p.text, p.agentId, p.skillId);
+    setToolSel(p.tools ?? []);
+    send(p.text, p.agentId, p.skillId, p.tools ?? []);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingTick, convId]);
 
   const stop = useCallback(() => abort.current?.abort(), []);
+
+  // agent 를 바꾸면 그 agent 범위 밖 tool 은 선택에서 뺀다 (자동이면 그대로)
+  const changeAgent = useCallback((id: string) => {
+    setAgentId(id);
+    const pool = id === "auto" ? null : meta?.agents.find((a) => a.id === id)?.tools;
+    if (pool) setToolSel((sel) => sel.filter((t) => pool.includes(t)));
+  }, [meta]);
+
+  const lastRoute = useMemo(
+    () => [...messages].reverse().find((m) => m.role === "assistant" && m.route)?.route ?? null,
+    [messages],
+  );
   const onSend = useCallback((t: string) => send(t), [send]);
 
   const title = useMemo(() => {
@@ -163,7 +181,11 @@ export default function ChatPage({ convId, navigate }: Props) {
       <section className="center">
         <header className="c-head">
           <b>{title}</b>
-          {convId && <span className="agent-badge"><i />{agentName(agentId)}</span>}
+          {convId && (
+            <span className="agent-badge" title={lastRoute?.route_reason}>
+              <i />{agentId === "auto" && lastRoute ? `자동 → ${lastRoute.agent_name}` : agentName(agentId)}
+            </span>
+          )}
           {convId && (
             <div className="right">
               <button className="ib" title="링크 복사" onClick={copyLink}><Share2 size={15} /></button>
@@ -208,14 +230,16 @@ export default function ChatPage({ convId, navigate }: Props) {
           busy={busy}
           agentId={agentId}
           skillId={skillId}
-          onAgentChange={setAgentId}
+          onAgentChange={changeAgent}
           onSkillChange={setSkillId}
+          selectedTools={toolSel}
+          onToolsChange={setToolSel}
           placeholder={messages.length ? "이어서 질문하세요…" : undefined}
           autoFocus
         />
       </section>
 
-      <ChatContext messages={messages} agentId={agentId} skillId={skillId} hasConversation={!!convId} busy={busy} navigate={navigate} onSchedule={scheduleDaily} />
+      <ChatContext messages={messages} route={lastRoute} agentId={agentId} skillId={skillId} hasConversation={!!convId} busy={busy} navigate={navigate} onSchedule={scheduleDaily} />
     </>
   );
 }

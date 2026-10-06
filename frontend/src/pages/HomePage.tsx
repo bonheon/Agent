@@ -19,6 +19,7 @@ export default function HomePage({ navigate }: { navigate: (p: string) => void }
   const [err, setErr] = useState(false);
   const [agentId, setAgentId] = useState("auto");
   const [skillId, setSkillId] = useState<string | null>(null);
+  const [tools, setTools] = useState<string[]>([]);
 
   const load = useCallback(() => {
     setErr(false);
@@ -26,8 +27,8 @@ export default function HomePage({ navigate }: { navigate: (p: string) => void }
   }, [area]);
   useEffect(load, [load]);
 
-  const ask = (text: string, agent = "line") => startChat({ text, agentId: agent, skillId: null });
-  const onSend = useCallback((text: string) => startChat({ text, agentId, skillId }), [startChat, agentId, skillId]);
+  const ask = (text: string, agent = "auto") => startChat({ text, agentId: agent, skillId: null });
+  const onSend = useCallback((text: string) => startChat({ text, agentId, skillId, tools }), [startChat, agentId, skillId, tools]);
 
   const k = ov?.kpi;
   const maxWip = Math.max(1, ...(ov?.groups.map((g) => g.wip) ?? [1]));
@@ -174,6 +175,8 @@ export default function HomePage({ navigate }: { navigate: (p: string) => void }
         skillId={skillId}
         onAgentChange={setAgentId}
         onSkillChange={setSkillId}
+        selectedTools={tools}
+        onToolsChange={setTools}
         placeholder="라인에 대해 질문하세요.  / 로 스킬 불러오기"
       />
     </section>

@@ -1,6 +1,7 @@
 import React, { KeyboardEvent, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { ArrowUp, Blocks, ChevronDown, Square, X } from "lucide-react";
+import { ArrowUp, Blocks, ChevronDown, Square, Wrench, X } from "lucide-react";
 import { useHub } from "../hub";
+import ToolPicker from "./ToolPicker";
 
 interface Props {
   onSend: (text: string) => void;
@@ -10,22 +11,27 @@ interface Props {
   skillId: string | null;
   onAgentChange: (id: string) => void;
   onSkillChange: (id: string | null) => void;
+  /** 사용자가 고른 tool — 비어 있으면 자동(agent 기본 tool) */
+  selectedTools: string[];
+  onToolsChange: (tools: string[]) => void;
   placeholder?: string;
   autoFocus?: boolean;
 }
 
 // 입력 상태를 여기 가둬서 타이핑이 메시지 목록을 다시 그리지 않게 한다
-function Composer({ onSend, onStop, busy, agentId, skillId, onAgentChange, onSkillChange, placeholder, autoFocus }: Props) {
+function Composer({ onSend, onStop, busy, agentId, skillId, onAgentChange, onSkillChange, selectedTools, onToolsChange, placeholder, autoFocus }: Props) {
   const { meta, skills } = useHub();
   const [text, setText] = useState("");
-  const [menu, setMenu] = useState<"agent" | "skill" | null>(null);
+  const [menu, setMenu] = useState<"agent" | "skill" | "tools" | null>(null);
   const [hl, setHl] = useState(0);
   const ta = useRef<HTMLTextAreaElement>(null);
   const root = useRef<HTMLDivElement>(null);
 
   const agent = meta?.agents.find((a) => a.id === agentId);
   const skill = skills.find((s) => s.id === skillId);
-  const toolCount = skill ? skill.tools.length : agent?.tools.length ?? 0;
+  const toolSummary = selectedTools.length
+    ? `${selectedTools.length + (skill?.tools.filter((t) => !selectedTools.includes(t)).length ?? 0)}개`
+    : skill ? `스킬 ${skill.tools.length}개` : "자동";
 
   // "/" 로 시작하면 스킬 메뉴 — 입력한 글자로 필터
   const slash = text.startsWith("/") ? text.slice(1).toLowerCase() : null;
@@ -108,7 +114,7 @@ function Composer({ onSend, onStop, busy, agentId, skillId, onAgentChange, onSki
                 {meta?.agents.map((a) => (
                   <button key={a.id} className={a.id === agentId ? "sel" : ""} onClick={() => { onAgentChange(a.id); setMenu(null); }}>
                     <b>{a.name}</b>
-                    <small>{a.description} · tool {a.tools.length}</small>
+                    <small>{a.description}{a.id !== "auto" && ` · tool ${a.tools.length}`}</small>
                   </button>
                 ))}
               </div>
@@ -136,7 +142,17 @@ function Composer({ onSend, onStop, busy, agentId, skillId, onAgentChange, onSki
               </div>
             )}
           </div>
-          <span className="limit">tool {toolCount}개 사용</span>
+          <div style={{ position: "relative" }}>
+            <button className={`opt ${selectedTools.length ? "skill-on" : ""}`} onClick={() => setMenu(menu === "tools" ? null : "tools")}>
+              <Wrench size={13} />Tool <b>{toolSummary}</b>
+              <ChevronDown size={13} />
+            </button>
+            {menu === "tools" && (
+              <div className="menu wide">
+                <ToolPicker agentId={agentId} skillTools={skill?.tools ?? []} selected={selectedTools} onChange={onToolsChange} />
+              </div>
+            )}
+          </div>
           {busy && onStop ? (
             <button className="send stop" onClick={onStop} aria-label="중지"><Square size={12} fill="currentColor" /></button>
           ) : (

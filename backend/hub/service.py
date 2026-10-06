@@ -34,7 +34,9 @@ def conversation_head(conv: dict) -> dict:
 def save_turn(
     conv_id: Optional[str], user_text: str, assistant_text: str, tools: list[dict],
     agent_id: str, skill_id: Optional[str], source: str = "chat", event_id: Optional[str] = None,
+    routed_agent: Optional[str] = None, route: Optional[dict] = None, user_id: Optional[str] = None,
 ) -> dict:
+    """agent_id 는 사용자가 고른 값(auto 포함), routed_agent 는 실제로 처리한 agent — 다음 턴 sticky routing 기준."""
     ts = store.now_iso()
     conv = store.get_item("conversations", conv_id) if conv_id else None
     if conv is None:
@@ -46,9 +48,13 @@ def save_turn(
         }
     conv["messages"] += [
         {"role": "user", "content": user_text, "at": ts},
-        {"role": "assistant", "content": assistant_text, "tools": tools, "at": ts},
+        {"role": "assistant", "content": assistant_text, "tools": tools, "agent": routed_agent, "route": route, "at": ts},
     ]
     conv.update(agent_id=agent_id, skill_id=skill_id, updated_at=ts, summary=summarize(assistant_text))
+    if routed_agent:
+        conv["routed_agent"] = routed_agent
+    if user_id:
+        conv.setdefault("user_id", user_id)
     store.upsert_item("conversations", conv)
 
     if skill_id and (skill := store.get_item("skills", skill_id)):
@@ -89,9 +95,9 @@ async def run_event(event_id: str) -> dict:
     prompt = event.get("prompt") or (f"'{skill['name']}' 스킬을 실행해줘" if skill else event["name"])
     started = datetime.now()
     try:
-        text, tools = await agent.run([{"role": "user", "content": prompt}], event.get("agent_id"), event.get("skill_id"))
+        text, tools, plan = await agent.run([{"role": "user", "content": prompt}], event.get("agent_id"), event.get("skill_id"))
         conv = save_turn(None, prompt, text, tools, event.get("agent_id") or "auto", event.get("skill_id"),
-                         source="event", event_id=event_id)
+                         source="event", event_id=event_id, routed_agent=plan.agent_id, route=plan.summary())
         conv["title"] = event["name"]
         store.upsert_item("conversations", conv)
         event["last_run"] = {

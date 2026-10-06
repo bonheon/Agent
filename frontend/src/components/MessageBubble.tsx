@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from "react";
-import { Check, CircleAlert } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Message, WaferMapPayload, TrendPayload, DefectMapPayload, YieldDefectPayload, DefectYieldHistoryPayload } from "../types";
@@ -13,7 +12,7 @@ import DefectStepOverlay from "./DefectStepOverlay";
 import WipCard from "./WipCard";
 import DailyReportCard from "./DailyReportCard";
 import { DefectStepOverlayPayload, WipStatusPayload, DailyReportPayload } from "../types";
-import { useHub } from "../hub";
+import RunTrace from "./RunTrace";
 
 interface Props {
   message: Message;
@@ -161,21 +160,6 @@ function Loading({ label }: { label: string }) {
   return <div className="chart-loading"><span className="spin" />{label}</div>;
 }
 
-function ToolRuns({ runs }: { runs: NonNullable<Message["tools"]> }) {
-  const { toolLabel } = useHub();
-  return (
-    <div className="run">
-      {runs.map((r, i) => (
-        <span key={r.id ?? i} className={`t ${r.ok === false ? "fail" : ""}`} title={JSON.stringify(r.args)}>
-          {r.ok === null ? <span className="spin" /> : r.ok ? <Check size={12} strokeWidth={2.6} /> : <CircleAlert size={12} />}
-          {toolLabel(r.name)}
-          {r.ms !== null && <span className="num" style={{ color: "var(--faint)" }}>{r.ms < 1000 ? `${r.ms}ms` : `${(r.ms / 1000).toFixed(1)}s`}</span>}
-        </span>
-      ))}
-    </div>
-  );
-}
-
 function renderPart(p: ReturnType<typeof parseContent>[number], i: number) {
   if (p.type === "text") {
     return p.value.trim() ? (
@@ -196,13 +180,11 @@ function MessageBubbleInner({ message }: Props) {
     return <div className="u"><div>{message.content}</div></div>;
   }
 
-  const waiting = message.streaming && !message.content && !message.tools?.length;
   return (
     <div className="bot">
       <div className="av">F</div>
       <div className="body">
-        {!!message.tools?.length && <ToolRuns runs={message.tools} />}
-        {waiting && <div className="thinking"><i /><i /><i /></div>}
+        <RunTrace message={message} />
         {message.streaming ? (
           // 스트리밍 중 — 마크다운 파싱 생략 (매 토큰 재파싱 방지)
           <div className="md" style={{ whiteSpace: "pre-wrap" }}>{message.content.replace(/\[[A-Z_]+:[^\]]*\]?/g, "")}</div>

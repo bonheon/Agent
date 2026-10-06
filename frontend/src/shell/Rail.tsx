@@ -11,7 +11,7 @@ interface Props {
 }
 
 export default function Rail({ route, navigate, theme, onToggleTheme }: Props) {
-  const { events } = useHub();
+  const { events, me } = useHub();
   const failed = events.some((e) => e.enabled && e.last_run?.status === "error");
 
   const items = [
@@ -37,7 +37,10 @@ export default function Rail({ route, navigate, theme, onToggleTheme }: Props) {
         {theme === "dark" ? <Sun size={18} strokeWidth={1.8} /> : <Moon size={18} strokeWidth={1.8} />}
         <span className="tip">{theme === "dark" ? "라이트 모드" : "다크 모드"}</span>
       </button>
-      <div className="me">나</div>
+      <button className={`rb me-btn ${route.page === "me" ? "on" : ""}`} onClick={() => navigate("/me")} aria-label="내 정보">
+        <span className="me">{me?.user.name.slice(0, 1) ?? "나"}</span>
+        <span className="tip">{me ? `${me.user.name} · 내 메모리` : "내 정보"}</span>
+      </button>
     </nav>
   );
 }

@@ -1,9 +1,11 @@
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
-from hub import catalog, service, store
+from db import user_store
+from hub import catalog, memory, routing, service, store
+from hub.users import current_user
 
 router = APIRouter(prefix="/api/hub", tags=["hub"])
 
@@ -21,9 +23,73 @@ def get_meta():
     return catalog.meta()
 
 
+@router.post("/catalog/refresh")
+async def refresh_catalog():
+    """MCP 서버에서 tool 목록을 지금 다시 받아온다."""
+    return await catalog.refresh()
+
+
+class ResolveIn(BaseModel):
+    agent_id: str
+    skill_id: Optional[str] = None
+    tool_selection: routing.ToolSelection = routing.ToolSelection()
+
+
+@router.post("/tools/resolve")
+def resolve_tools(body: ResolveIn):
+    """선택 화면 미리보기 — LLM 없이 규칙만 적용. agent=auto 면 후보 agent 목록만 돌려준다."""
+    skill = _or_404(store.get_item("skills", body.skill_id), "skill") if body.skill_id else None
+    if body.agent_id not in catalog.AGENTS_BY_ID:
+        return {"agent_id": catalog.AUTO, "candidates": routing.candidates(body.tool_selection, skill),
+                "locked": routing.skill_tools(skill)}
+    plan = routing.plan_tools(body.agent_id, body.tool_selection, skill)
+    return {k: v for k, v in plan.event().items() if k not in ("type", "route_mode", "route_reason")}
+
+
 @router.get("/overview")
 def get_overview(area: str = "M14 CMP"):
     return service.overview(area)
+
+
+# ── 사용자 · 메모리 ────────────────────────────────────────────
+
+class MemoryIn(BaseModel):
+    content: str = Field(min_length=1, max_length=memory.MAX_CHARS * 2)
+
+
+@router.get("/me")
+def get_me(user: dict = Depends(current_user)):
+    m = user_store.get_memory(user["user_id"])
+    return {"user": user, "memory": m, "memory_enabled": memory.ENABLED, "template": memory.template(user)}
+
+
+@router.put("/me/memory")
+def edit_memory(body: MemoryIn, user: dict = Depends(current_user)):
+    """사용자가 화면에서 직접 고친 메모리 — 다음 대화부터 그대로 쓰인다."""
+    return user_store.save_memory(user["user_id"], body.content.strip(), "edit")
+
+
+@router.delete("/me/memory")
+def reset_memory(user: dict = Depends(current_user)):
+    """최신본만 지운다 (history 는 남김) — 다음 대화부터 새로 쌓인다."""
+    user_store.delete_memory(user["user_id"])
+    return {"ok": True}
+
+
+@router.get("/me/memory/history")
+def list_memory_history(user: dict = Depends(current_user)):
+    return user_store.memory_history(user["user_id"])
+
+
+@router.get("/me/memory/history/{version}")
+def get_memory_version(version: int, user: dict = Depends(current_user)):
+    return _or_404(user_store.memory_version(user["user_id"], version), "memory version")
+
+
+@router.post("/me/memory/history/{version}/restore")
+def restore_memory(version: int, user: dict = Depends(current_user)):
+    old = _or_404(user_store.memory_version(user["user_id"], version), "memory version")
+    return user_store.save_memory(user["user_id"], old["content"], "restore")
 
 
 # ── 대화 ──────────────────────────────────────────────────────
@@ -59,7 +125,9 @@ class SkillIn(BaseModel):
 
 
 def _check_tools(names: list[str]) -> list[str]:
-    unknown = [n for n in names if n not in catalog.TOOLS_BY_NAME]
+    # MCP 서버가 잠시 내려가 있어도 skill 편집은 되도록 catalog.yaml 에 있는 이름도 허용
+    known = set(catalog.GROUPED_TOOLS) | set(catalog.TOOLS_BY_NAME)
+    unknown = [n for n in names if n not in known]
     if unknown:
         raise HTTPException(422, f"unknown tools: {', '.join(unknown)}")
     return names

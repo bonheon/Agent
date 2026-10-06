@@ -1,12 +1,14 @@
 """
 LangGraph 에이전트 실행부 — chat(스트리밍)과 이벤터(일괄 실행)가 함께 쓴다.
 
-에이전트/스킬이 고른 tool 부분집합마다 그래프를 따로 컴파일해 캐시한다.
+어떤 agent 와 tool 로 실행할지는 hub.routing 이 정하고(Plan), 여기서는 그대로 실행만 한다.
+tool 부분집합마다 그래프를 따로 컴파일해 캐시한다.
 LLM 이 보는 tool 목록 자체를 줄여야 선택 정확도가 오르기 때문에,
 프롬프트로 "이 tool 만 써라" 라고 하는 대신 bind_tools 대상을 바꾼다.
 """
 import os
 import time
+from collections import OrderedDict
 from typing import AsyncGenerator, Optional
 
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
@@ -16,7 +18,8 @@ from langgraph.graph import StateGraph, MessagesState
 from langgraph.prebuilt import ToolNode, tools_condition
 
 from hub.catalog import AGENTS_BY_ID, TOOLS_BY_NAME
-from hub import store
+from hub import catalog, routing, store
+from hub.routing import Plan
 
 MODEL = "gpt-4o"
 RECURSION_LIMIT = 16
@@ -95,24 +98,23 @@ Step 간 Defect Overlay 분석 (get_defect_step_overlay):
 항상 한국어로 응답"""
 
 
-def resolve(agent_id: Optional[str], skill_id: Optional[str]) -> tuple[list, str, dict, Optional[dict]]:
-    """(tool 목록, 시스템 프롬프트, 에이전트, 스킬) — 스킬이 있으면 스킬의 tool 이 우선한다."""
-    agent = AGENTS_BY_ID.get(agent_id or "auto", AGENTS_BY_ID["auto"])
-    skill = store.get_item("skills", skill_id) if skill_id else None
-
-    names = (skill["tools"] if skill and skill["tools"] else agent["tools"])
-    tools = [TOOLS_BY_NAME[n] for n in names if n in TOOLS_BY_NAME]
-
-    prompt = SYSTEM_PROMPT
-    if agent["id"] != "auto":
-        prompt += f"\n\n[에이전트 역할: {agent['name']}] {agent['description']}"
+def build_prompt(plan: Plan, skill: Optional[dict], user_memory: str = "") -> str:
+    agent = AGENTS_BY_ID[plan.agent_id]
+    prompt = SYSTEM_PROMPT + f"\n\n[에이전트: {agent['name']}]\n{agent['prompt'].strip()}"
     if skill:
         prompt += (
             f"\n\n[스킬: {skill['name']}]\n{skill['description']}\n"
             f"아래 절차를 따르세요. 사용자가 특정 데이터 하나만 요청하면 해당 tool 만 호출하고 끝냅니다.\n"
             f"{skill['instructions']}"
         )
-    return tools, prompt, agent, skill
+    prompt += user_memory  # hub.memory.for_prompt() 결과 — 없으면 빈 문자열
+    if plan.unavailable:
+        # 빠진 tool 을 알리지 않으면 LLM 이 데이터 없이 답을 지어낸다
+        prompt += (
+            f"\n\n[사용 불가 tool] {', '.join(plan.unavailable)} — 지금 응답하지 않는 tool 입니다. "
+            f"이 데이터가 필요한 질문이면 조회할 수 없다고 분명히 알리고 추정으로 채우지 마세요."
+        )
+    return prompt
 
 
 def _build_graph(tools: list):
@@ -134,13 +136,24 @@ def _build_graph(tools: list):
 
 
 # lazy — main.py 의 load_dotenv() 이후 첫 요청 시점에 만든다
-_graphs: dict[tuple[str, ...], object] = {}
+# 사용자가 tool 을 자유롭게 조합하므로 조합 수가 계속 늘 수 있다 — LRU 로 상한
+GRAPH_CACHE_MAX = 32
+_graphs: "OrderedDict[tuple[str, ...], object]" = OrderedDict()
+_graphs_version = 0
 
 
-def _get_graph(tools: list):
-    key = tuple(sorted(t.name for t in tools))
-    if key not in _graphs:
-        _graphs[key] = _build_graph(tools)
+def _get_graph(tool_names: list[str]):
+    global _graphs_version
+    if _graphs_version != catalog.VERSION:  # MCP 를 다시 받아왔으면 낡은 tool 객체를 쥔 그래프는 버린다
+        _graphs.clear()
+        _graphs_version = catalog.VERSION
+    key = tuple(sorted(tool_names))
+    if key in _graphs:
+        _graphs.move_to_end(key)
+    else:
+        _graphs[key] = _build_graph([TOOLS_BY_NAME[n] for n in key])
+        if len(_graphs) > GRAPH_CACHE_MAX:
+            _graphs.popitem(last=False)
     return _graphs[key]
 
 
@@ -154,19 +167,19 @@ def to_lc_messages(system_prompt: str, messages: list[dict]) -> list:
     return lc
 
 
-async def stream(messages: list[dict], agent_id: Optional[str], skill_id: Optional[str]) -> AsyncGenerator[dict, None]:
-    """에이전트 실행 이벤트를 순서대로 yield.
+async def stream(messages: list[dict], plan: Plan, skill: Optional[dict],
+                 user_memory: str = "") -> AsyncGenerator[dict, None]:
+    """에이전트 실행 이벤트를 순서대로 yield. plan 은 hub.routing.resolve() 결과.
 
     {"type": "delta", "text": ...}
     {"type": "tool_start", "id", "name", "args"}
     {"type": "tool_end", "id", "name", "ms", "ok"}
     """
-    tools, prompt, _, _ = resolve(agent_id, skill_id)
-    graph = _get_graph(tools)
+    graph = _get_graph(plan.tools)
     started: dict[str, float] = {}
 
     async for ev in graph.astream_events(
-        {"messages": to_lc_messages(prompt, messages)},
+        {"messages": to_lc_messages(build_prompt(plan, skill, user_memory), messages)},
         {"recursion_limit": RECURSION_LIMIT},
         version="v2",
     ):
@@ -186,15 +199,17 @@ async def stream(messages: list[dict], agent_id: Optional[str], skill_id: Option
                    "ms": round((time.perf_counter() - t0) * 1000), "ok": kind == "on_tool_end"}
 
 
-async def run(messages: list[dict], agent_id: Optional[str], skill_id: Optional[str]) -> tuple[str, list[dict]]:
-    """스트리밍 없이 끝까지 실행 — (최종 텍스트, tool 실행 기록)."""
+async def run(messages: list[dict], agent_id: Optional[str], skill_id: Optional[str]) -> tuple[str, list[dict], Plan]:
+    """스트리밍 없이 끝까지 실행 — (최종 텍스트, tool 실행 기록, 실행 계획)."""
+    skill = store.get_item("skills", skill_id) if skill_id else None
+    plan = await routing.resolve(messages, agent_id, skill, None, None)
     text: list[str] = []
     runs: dict[str, dict] = {}
-    async for ev in stream(messages, agent_id, skill_id):
+    async for ev in stream(messages, plan, skill):
         if ev["type"] == "delta":
             text.append(ev["text"])
         elif ev["type"] == "tool_start":
             runs[ev["id"]] = {"name": ev["name"], "args": ev["args"], "ms": None, "ok": None}
         elif ev["type"] == "tool_end" and ev["id"] in runs:
             runs[ev["id"]].update(ms=ev["ms"], ok=ev["ok"])
-    return "".join(text), list(runs.values())
+    return "".join(text), list(runs.values()), plan

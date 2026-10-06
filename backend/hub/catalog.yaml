@@ -1,0 +1,61 @@
+# Hub 카탈로그 — agent 와 tool 그룹 정의.
+#
+# 두 개념은 기준이 다르다.
+#   group = 데이터 영역 (무엇을 조회하나)   → 사용자가 묶음 단위로 켜고 끈다
+#   agent = 업무 방식   (어떻게 다루나)     → 프롬프트 · 허용 범위 · 기본 그룹
+# 프롬프트가 다르지 않다면 agent 를 늘리지 말고 skill 이나 group 으로 해결한다.
+#
+# tool 이름은 MCP(현재는 tools/langgraph_tools.py) 가 내려주는 이름과 같아야 한다.
+# 로드 시 검증해서 모르는 이름은 경고만 남기고 "사용 불가" 로 취급한다.
+
+groups:
+  - id: line
+    name: 라인 운영
+    description: 전일 이슈 · WIP · 장비 상태
+    tools: [get_daily_report, get_wip_status]
+
+  - id: lot
+    name: Lot 이력
+    description: Lot Hold 상태 · 공정 지표 Trend
+    tools: [get_lot_hold_info, get_lot_trend]
+
+  - id: defect
+    name: Defect
+    description: Defect 위치 · 추이 · step 간 이동
+    tools: [get_defect_map, get_defect_trend, get_defect_step_overlay]
+
+  - id: yield
+    name: 수율 · 계측
+    description: Wafer 수율 · Chip Kill · Lot Grouping
+    tools: [get_yield_defect, get_defect_yield_history, analyze_yield_grouping, get_wafer_map]
+
+# 첫 번째 agent 가 fallback 이다 — Router 가 판단하지 못하거나 오류가 나면 여기로 간다.
+# 그래서 영역을 넘나드는 질문을 받아줄 수 있도록 allowed_groups 가 가장 넓어야 한다.
+agents:
+  - id: ceeria
+    name: 씨리아
+    description: 지식 기반 라인 어시스턴트 — 일반 질문 · 현황 조회 · 여러 영역에 걸친 질문
+    route_hint: |
+      일반적인 라인 현황/데이터 조회, 개념·기준 질문, 여러 영역(라인 운영+수율 등)을 함께 묻는 질문.
+      특정 Lot 의 이상 원인을 추적해 달라는 요청이 아니면 대부분 여기에 해당한다.
+    allowed_groups: [line, lot, defect, yield]
+    default_groups: [line, lot, defect, yield]
+    prompt: |
+      당신은 반도체 라인 지식 기반 어시스턴트 '씨리아'입니다.
+      - 실시간 현황과 수치는 반드시 tool 로 조회한 결과만 근거로 답합니다.
+      - 질문이 여러 영역에 걸치면 필요한 tool 을 함께 호출해 한 답변으로 종합합니다.
+
+  - id: trouble
+    name: Trouble Lot
+    description: 이상 · Hold Lot 의 원인 추적과 처리 방향 제시
+    route_hint: |
+      특정 Lot 이 Hold/이상/불량/수율 저하 상태이고, 그 원인을 찾거나 처리 방향을 묻는 질문.
+      예) "TE2FE35 왜 hold 걸렸어", "이 lot 수율 떨어진 원인 찾아줘".
+      단순 현황 조회(WIP, 전일 이슈 요약)는 해당하지 않는다.
+    allowed_groups: [lot, defect, yield]
+    default_groups: [lot, defect]
+    prompt: |
+      당신은 Trouble Lot 분석 담당 agent 입니다.
+      - Lot 의 Hold 정보부터 확인하고, 원인 후보를 Defect → 수율 영향 순으로 좁혀 갑니다.
+      - 조회로 확인된 사실과 추정을 분명히 구분해서 씁니다.
+      - 마지막에 처리 방향(재작업/Disposition/추가 확인 항목)을 3줄 이내로 제안합니다.

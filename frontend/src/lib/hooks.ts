@@ -7,7 +7,8 @@ export type Route =
   | { page: "chat"; id: string }
   | { page: "skills"; id?: string }
   | { page: "events" }
-  | { page: "portals" };
+  | { page: "portals" }
+  | { page: "me" };
 
 function parse(hash: string): Route {
   const [, a, b] = hash.replace(/^#/, "").split("/");
@@ -16,6 +17,7 @@ function parse(hash: string): Route {
   if (a === "skills") return { page: "skills", id: b };
   if (a === "events") return { page: "events" };
   if (a === "portals") return { page: "portals" };
+  if (a === "me") return { page: "me" };
   return { page: "home" };
 }
 

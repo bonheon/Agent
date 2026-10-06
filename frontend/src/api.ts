@@ -1,12 +1,49 @@
 // Hub 백엔드 API — 타입과 호출 함수
 
-export interface Agent { id: string; name: string; description: string; tools: string[] }
-export interface ToolInfo { name: string; label: string; category: string; description: string }
+export interface Agent {
+  id: string; name: string; description: string;
+  tools: string[];               // 허용 범위 (allowed_groups 의 tool 전체)
+  allowed_groups: string[]; default_groups: string[];
+}
+export interface ToolGroup { id: string; name: string; description: string; tools: string[] }
+export interface ToolInfo {
+  name: string; label: string; category: string; description: string;
+  group: string | null; available: boolean; server: string | null;
+}
+export interface McpServer { name: string; url: string; status: "ok" | "down"; tools: string[]; error: string | null; checked_at: string }
 export interface Portal { id: string; name: string; description: string; status: "ok" | "warn" | "err"; note: string; url: string }
-export interface Meta { agents: Agent[]; tools: ToolInfo[]; areas: string[]; portals: Portal[] }
+export interface Meta {
+  agents: Agent[]; groups: ToolGroup[]; tools: ToolInfo[]; areas: string[]; portals: Portal[];
+  mcp_servers: McpServer[];
+}
 
 export interface ToolRun { id?: string; name: string; args: Record<string, unknown>; ms: number | null; ok: boolean | null }
-export interface StoredMessage { role: "user" | "assistant"; content: string; tools?: ToolRun[]; at: string }
+
+/** 백엔드 분기 결과 — 어떤 agent 가 어떤 tool 로 처리하는지 */
+export type RouteMode = "manual" | "single" | "sticky" | "router" | "fallback";
+export interface RouteInfo {
+  agent_id: string; agent_name: string;
+  route_mode: RouteMode; route_reason: string;
+  tools: string[]; locked: string[];
+  dropped: { name: string; reason: "excluded" | "not_allowed" | "unavailable" }[];
+  warnings: string[];
+}
+export interface User {
+  user_id: string; name: string; dept: string; email: string;
+  profile: Record<string, unknown>; created_at: string; last_seen: string;
+}
+export interface UserMemory { user_id: string; content: string; version: number; updated_at: string; source: string }
+export interface MemoryVersion { version: number; source: string; created_at: string; chars?: number; content?: string }
+export interface Me { user: User; memory: UserMemory | null; memory_enabled: boolean; template: string }
+/** 채팅 시작 시 백엔드가 불러온 사용자 · 메모리 */
+export interface UserCtx { user_id: string; name: string; memory_chars: number; memory_version: number }
+
+export interface ToolSelection { groups?: string[]; tools?: string[]; exclude?: string[] }
+
+export interface StoredMessage {
+  role: "user" | "assistant"; content: string; tools?: ToolRun[]; at: string;
+  agent?: string | null; route?: RouteInfo | null;
+}
 export interface ConvHead {
   id: string; title: string; source: "chat" | "event"; event_id: string | null;
   agent_id: string; skill_id: string | null; summary: string;
@@ -59,6 +96,13 @@ const json = (method: string, body: unknown): RequestInit => ({ method, body: JS
 
 export const api = {
   meta: () => req<Meta>("/api/hub/meta"),
+  me: () => req<Me>("/api/hub/me"),
+  saveMemory: (content: string) => req<UserMemory>("/api/hub/me/memory", json("PUT", { content })),
+  resetMemory: () => req("/api/hub/me/memory", { method: "DELETE" }),
+  memoryHistory: () => req<MemoryVersion[]>("/api/hub/me/memory/history"),
+  memoryVersion: (v: number) => req<MemoryVersion>(`/api/hub/me/memory/history/${v}`),
+  restoreMemory: (v: number) => req<UserMemory>(`/api/hub/me/memory/history/${v}/restore`, { method: "POST" }),
+  refreshCatalog: () => req<{ tools: number; servers: McpServer[] }>("/api/hub/catalog/refresh", { method: "POST" }),
   overview: (area: string) => req<Overview>(`/api/hub/overview?area=${encodeURIComponent(area)}`),
 
   conversations: () => req<ConvHead[]>("/api/hub/conversations"),
@@ -85,9 +129,12 @@ export interface ChatRequest {
   conversation_id: string | null;
   agent_id: string;
   skill_id: string | null;
+  tool_selection?: ToolSelection | null;
 }
 export interface ChatHandlers {
   onMeta: (conversationId: string) => void;
+  onUser: (ctx: UserCtx) => void;
+  onRoute: (route: RouteInfo) => void;
   onDelta: (text: string) => void;
   onToolStart: (run: ToolRun & { id: string }) => void;
   onToolEnd: (id: string, ms: number, ok: boolean) => void;
@@ -120,6 +167,8 @@ export async function streamChat(body: ChatRequest, h: ChatHandlers, signal?: Ab
       try { ev = JSON.parse(payload); } catch { continue; }
       switch (ev.type) {
         case "meta": h.onMeta(ev.conversation_id); break;
+        case "user": { const { type, ...ctx } = ev; h.onUser(ctx as UserCtx); break; }
+        case "route": { const { type, ...route } = ev; h.onRoute(route as RouteInfo); break; }
         case "delta": h.onDelta(ev.delta); break;
         case "tool_start": h.onToolStart({ id: ev.id, name: ev.name, args: ev.args, ms: null, ok: null }); break;
         case "tool_end": h.onToolEnd(ev.id, ev.ms, ev.ok); break;

@@ -3,23 +3,30 @@ POST /api/chat — SSE 스트리밍.
 
 이벤트 (data: <json>):
   {"type": "meta", "conversation_id"}          첫 이벤트
+  {"type": "user", "user_id", "name", "memory_chars", "memory_version"}   불러온 사용자 메모리
+  {"type": "route", "agent_id", "agent_name", "route_mode", "route_reason",
+   "tools", "locked", "dropped", "warnings"}    분기 결과 · 이번 턴에 켜진 tool
   {"type": "tool_start", "id", "name", "args"}
   {"type": "tool_end", "id", "name", "ms", "ok"}
   {"type": "delta", "delta"}                   텍스트 토큰
   {"type": "error", "message"}
   [DONE]
-응답이 끝나면 대화가 hub 저장소에 기록된다.
+응답이 끝나면 대화가 hub 저장소에 기록되고, 사용자 메모리(md)가 백그라운드로 갱신된다.
 """
 import json
 import logging
+from datetime import date
 from typing import Optional
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 import agent
-from hub import service, store
+from db import user_store
+from hub import memory, service, store
+from hub.users import current_user
+from hub.routing import ToolSelection, resolve
 
 router = APIRouter(prefix="/api", tags=["chat"])
 log = logging.getLogger("chat")
@@ -35,6 +42,7 @@ class ChatRequest(BaseModel):
     conversation_id: Optional[str] = None
     agent_id: str = "auto"
     skill_id: Optional[str] = None
+    tool_selection: Optional[ToolSelection] = None
 
 
 def _sse(payload) -> str:
@@ -42,17 +50,27 @@ def _sse(payload) -> str:
 
 
 @router.post("/chat")
-async def chat(req: ChatRequest):
+async def chat(req: ChatRequest, user: dict = Depends(current_user)):
     conv_id = req.conversation_id or store.new_id("cv")
     messages = [m.model_dump() for m in req.messages]
     user_text = next((m["content"] for m in reversed(messages) if m["role"] == "user"), "")
+    conv = store.get_item("conversations", req.conversation_id) if req.conversation_id else None
+    prev_agent = conv.get("routed_agent") if conv else None
+    skill = store.get_item("skills", req.skill_id) if req.skill_id else None
+    mem = user_store.get_memory(user["user_id"])
 
     async def generate():
         yield _sse({"type": "meta", "conversation_id": conv_id})
+        yield _sse({"type": "user", "user_id": user["user_id"], "name": user["name"],
+                    "memory_chars": len(mem["content"]) if mem else 0,
+                    "memory_version": mem["version"] if mem else 0})
         text: list[str] = []
         runs: dict[str, dict] = {}
+        plan = None
         try:
-            async for ev in agent.stream(messages, req.agent_id, req.skill_id):
+            plan = await resolve(messages, req.agent_id, skill, req.tool_selection, prev_agent)
+            yield _sse(plan.event())
+            async for ev in agent.stream(messages, plan, skill, memory.for_prompt(mem["content"] if mem else None)):
                 if ev["type"] == "delta":
                     text.append(ev["text"])
                     yield _sse({"type": "delta", "delta": ev["text"]})
@@ -68,7 +86,13 @@ async def chat(req: ChatRequest):
         finally:
             if text or runs:
                 service.save_turn(conv_id, user_text, "".join(text), list(runs.values()),
-                                  req.agent_id, req.skill_id)
+                                  req.agent_id, req.skill_id, routed_agent=plan.agent_id if plan else None,
+                                  route=plan.summary() if plan else None, user_id=user["user_id"])
+                memory.schedule_update(user, user_text, "".join(text), list(runs.values()), date.today().isoformat())
         yield "data: [DONE]\n\n"
 
-    return StreamingResponse(generate(), media_type="text/event-stream")
+    # 프록시가 SSE 를 모아서 보내지 않게 — CRA 개발 서버의 gzip 은 no-transform 을, nginx 는 X-Accel-Buffering 을 본다
+    return StreamingResponse(generate(), media_type="text/event-stream", headers={
+        "Cache-Control": "no-cache, no-transform",
+        "X-Accel-Buffering": "no",
+    })
